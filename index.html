@@ -68,6 +68,8 @@
         margin: 4px 0 8px;
         letter-spacing: 0.01em;
       }
+      .intro .simple-link { margin: 0 0 14px; font-size: 18px; font-weight: 700; }
+      .intro .simple-link a { color: var(--blue); }
       .intro .lead { margin: 0 0 18px; color: var(--ink-soft); font-size: 15px; }
       .intro .lead a { color: var(--blue); }
       .intro .lead strong { color: var(--ink); }
@@ -232,14 +234,12 @@
     <div class="wrap">
       <header class="intro">
         <h1>同じ所を2度通らない道順の数</h1>
+        <p class="simple-link"><a href="https://riley-letscount.github.io/letscount/simple.html" target="_blank" rel="noopener">シンプル版（スマートフォン向け）はこちら</a></p>
         <p class="lead">
-          マス目の<strong>左上の点から右下の点まで、同じ点を2度通らずに進む道順</strong>の数を数えるプログラムです。
-          アニメ『フカシギの数え方』に登場した「おねえさんのコンピュータ」を題材に、<a href="https://shogo82148.github.io/letscount/">shogo82148</a>さんのページを見て組んだプログラムです。元ネタの動画は<a href="https://www.youtube.com/watch?v=Q4gTV4r0zRs">『フカシギの数え方』おねえさんといっしょ！みんなで数えてみよう！</a>です。
-          まず<strong>シングル（1コア）かマルチ（複数コア並列）か</strong>を選び、
-          マルチではコア数をデバイスに合わせて自動選択できます（初期値）。通常モードは全探索、
-          「おねえさんに教えてあげる」を使うと <strong>ZDD（Simpath / frontier法・パック方式）</strong>で高速に数えます。
-          サイズは <strong>20×20 まで</strong>挑戦できます。
-          なお、このページの下部から<strong>Windows用とMac用のローカル版（GUIアプリ）もダウンロード</strong>でき、ブラウザを開かずにパソコン上でも実行できます。
+          アニメ『フカシギの数え方』に登場するコンピュータを題材にしたプログラムです。
+          通常モードは全探索、「おねえさんに教えてあげる」を使うと高速で数えます。
+          このページの下部から<strong>Windows用とMac用のローカル版（GUIアプリ）もダウンロード</strong>できます。
+          参考：<a href="https://shogo82148.github.io/letscount/">shogo82148</a>、元ネタ：<a href="https://www.youtube.com/watch?v=Q4gTV4r0zRs">『フカシギの数え方』おねえさんといっしょ！みんなで数えてみよう！</a>
         </p>
       </header>
 
@@ -300,7 +300,6 @@
             <div class="ctl-label" id="sizeLabel">マス目の大きさ</div>
             <div id="sizeGrid" class="size-grid" role="group" aria-labelledby="sizeLabel"></div>
             <div class="btn-row">
-              <button id="startBtn" class="btn primary" type="button">数える</button>
               <button id="stopBtn" class="btn danger" type="button" disabled>停止</button>
             </div>
             <div class="warn-slot">
@@ -1374,7 +1373,7 @@ var modeSingle = $("modeSingle"), modeMulti = $("modeMulti");
 var singleOpts = $("singleOpts"), multiOpts = $("multiOpts"), singleBanner = $("singleBanner");
 var optsStack = $("optsStack");
 var coreSel = $("coreSel"), coreNote = $("coreNote");
-var startBtn = $("startBtn"), stopBtn = $("stopBtn"), warnBox = $("warnBox");
+var stopBtn = $("stopBtn"), warnBox = $("warnBox");
 var statusText = $("statusText"), modeBadge = $("modeBadge"), stageNote = $("stageNote");
 var progressBar = $("progressBar");
 var resCount = $("resCount"), resDigits = $("resDigits"), resSize = $("resSize"),
@@ -1638,6 +1637,7 @@ var btn = ev.target.closest(".size-btn");
 if (!btn || running) return;
 size = parseInt(btn.getAttribute("data-n"), 10);
 refreshSizeUI();
+startRun();
 });
 })();
 (function buildCoreSel() {
@@ -1780,7 +1780,6 @@ function spawnMultiWorker() { return new Worker(getMultiWorkerUrl());}
 
 /* ---------- 実行管理（共通） ---------- */
 function setRunningUI(on) {
-startBtn.disabled = on;
 stopBtn.disabled =!on;
 teachCheck.disabled = on;
 coreSel.disabled = on;
@@ -1984,7 +1983,6 @@ resSize.textContent = wasSize + "×" + wasSize;
 draw();
 }
 
-startBtn.addEventListener("click", startRun);
 stopBtn.addEventListener("click", stopRun);
 teachCheck.addEventListener("change", function () {
 if (running) return;
