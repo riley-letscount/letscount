@@ -1,0 +1,1138 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>おねえさんのコンピュータ</title>
+    <style>
+      :root {
+        --page-bg: #d9d9d9;
+        --frame-border: #4a4340;
+        --frame-bg: #cfcfcf;
+        --ink: #111111;
+        --ink-soft: #3d3d3d;
+        --grid-line: #1c1c1c;
+        --marker-bg: #0d0d0d;
+        --marker-ink: #ffffff;
+        --path: #d8402f;
+        --processed: #2456a6;
+        --frontier: #dd9414;
+        --btn-bg: #ffffff;
+        --btn-ink: #16181d;
+        --btn-line: #9a9a9a;
+        --btn-active-bg: #16181d;
+        --btn-active-ink: #ffffff;
+        --primary-bg: #16181d;
+        --primary-ink: #ffffff;
+        --teach-bg: #b3541e;
+        --teach-ink: #ffffff;
+        --link: #1a46c8;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --page-bg: #17181c;
+          --frame-border: #8f8a86;
+          --frame-bg: #232529;
+          --ink: #f2f2f0;
+          --ink-soft: #c6c9cd;
+          --grid-line: #d7d7d7;
+          --marker-bg: #f2f2f0;
+          --marker-ink: #111111;
+          --path: #ff7a5c;
+          --processed: #7aa5e8;
+          --frontier: #f2b04e;
+          --btn-bg: #2b2e34;
+          --btn-ink: #f2f2f0;
+          --btn-line: #5a5e66;
+          --btn-active-bg: #f2f2f0;
+          --btn-active-ink: #16181d;
+          --primary-bg: #f2f2f0;
+          --primary-ink: #16181d;
+          --teach-bg: #c96a2e;
+          --teach-ink: #ffffff;
+          --link: #8fb0ff;
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        background: var(--page-bg);
+        color: var(--ink);
+        font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
+        -webkit-text-size-adjust: 100%;
+      }
+      .num { font-variant-numeric: tabular-nums; }
+      main {
+        max-width: 430px;
+        margin: 0 auto;
+        padding: 8px 10px 12px;
+      }
+
+      /* ---------- 大きな枠 ---------- */
+      .frame {
+        border: 12px solid var(--frame-border);
+        border-radius: 18px;
+        background: var(--frame-bg);
+        padding: 14px 16px 14px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 900;
+        line-height: 1.35;
+        text-align: center;
+        letter-spacing: -0.03em;
+        white-space: nowrap;
+      }
+      .subtitle {
+        margin: 6px 0 0;
+        text-align: center;
+        font-size: 7.5px;
+        font-weight: 700;
+        color: var(--ink-soft);
+        letter-spacing: -0.03em;
+        white-space: nowrap;
+      }
+      .stage {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .stage-left {
+        flex: 1 1 0;
+        min-width: 0;
+        padding-top: 16px;
+        text-align: center;
+      }
+      .size-big {
+        font-size: 30px;
+        font-weight: 900;
+        line-height: 1.05;
+        letter-spacing: -0.01em;
+      }
+      .status {
+        margin-top: 14px;
+        font-size: 14px;
+        font-weight: 700;
+        min-height: 1.4em;
+      }
+      .elapsed {
+        margin-top: 4px;
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--ink-soft);
+      }
+      .elapsed .num { font-size: 19px; color: var(--ink); }
+      .board-wrap {
+        flex: 0 0 47%;
+        position: relative;
+      }
+      canvas#board {
+        display: block;
+        width: 100%;
+        aspect-ratio: 1 / 1;
+      }
+      .result {
+        margin-top: 14px;
+      }
+      .count-jp {
+        font-family: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Yu Mincho", "YuMincho", "Noto Serif JP", serif;
+        font-weight: 700;
+        font-size: 19px;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+        min-height: 1.45em;
+      }
+      .count-jp .suffix { font-size: 19px; }
+      .patterns {
+        text-align: right;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--ink-soft);
+        margin-top: 2px;
+      }
+      .count-exact {
+        margin-top: 8px;
+        font-size: 12.5px;
+        color: var(--ink-soft);
+        overflow-wrap: anywhere;
+        line-height: 1.5;
+        min-height: 1.5em;
+      }
+
+      /* ---------- 操作系 ---------- */
+      .controls { margin-top: 10px; }
+      .size-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 6px;
+      }
+      .size-btn {
+        min-height: 46px;
+        padding: 6px 2px;
+        font: inherit;
+        font-size: 15px;
+        font-weight: 800;
+        color: var(--btn-ink);
+        background: var(--btn-bg);
+        border: 1.5px solid var(--btn-line);
+        border-radius: 10px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .size-btn[aria-pressed="true"] {
+        background: var(--btn-active-bg);
+        color: var(--btn-active-ink);
+        border-color: var(--btn-active-bg);
+      }
+      .size-btn:disabled { opacity: 0.45; cursor: default; }
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .act-btn {
+        min-height: 52px;
+        padding: 8px 6px;
+        font: inherit;
+        font-size: 18px;
+        font-weight: 900;
+        border-radius: 10px;
+        border: 1.5px solid transparent;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .act-btn:disabled { opacity: 0.45; cursor: default; }
+      #stopBtn {
+        background: var(--btn-bg);
+        color: var(--btn-ink);
+        border-color: var(--btn-line);
+      }
+      .teach-check {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 52px;
+        padding: 8px 12px;
+        background: var(--teach-bg);
+        color: var(--teach-ink);
+        border-radius: 10px;
+        font-size: 17px;
+        font-weight: 900;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .teach-check input[type="checkbox"] {
+        width: 26px;
+        height: 26px;
+        margin: 0;
+        flex: 0 0 auto;
+        accent-color: var(--primary-bg);
+        cursor: pointer;
+      }
+      .teach-check:has(input:disabled) { opacity: 0.45; cursor: default; }
+      .teach-check:has(input:disabled) input[type="checkbox"] { cursor: default; }
+      button:focus-visible { outline: 2.5px solid var(--processed); outline-offset: 2px; }
+
+      .origin {
+        margin-top: 12px;
+        font-size: 13.5px;
+        line-height: 1.55;
+      }
+      .origin a { color: var(--link); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="frame" aria-label="数え上げ">
+        <h1>同じ所を2度通らない道順の数</h1>
+        <p class="subtitle">Total number of routes that do not pass by the same place twice</p>
+
+        <div class="stage">
+          <div class="stage-left">
+            <div class="size-big num" id="sizeBig">—</div>
+            <div class="status" id="statusText"></div>
+            <div class="elapsed">時間 <span class="num" id="resTime">—</span></div>
+          </div>
+          <div class="board-wrap">
+            <canvas id="board" aria-label="マス目のグリッド"></canvas>
+          </div>
+        </div>
+
+        <div class="result">
+          <div class="count-jp" id="resCount">—</div>
+          <div class="patterns">patterns</div>
+          <div class="count-exact num" id="resDigits"></div>
+        </div>
+      </section>
+
+      <section class="controls" aria-label="操作">
+        <div class="size-grid" id="sizeGrid" role="group" aria-label="マス目の大きさ"></div>
+        <div class="actions">
+          <button type="button" class="act-btn" id="stopBtn" disabled>stop</button>
+          <label class="teach-check"><input type="checkbox" id="teachCheck" />おねえさんに教えてあげる</label>
+        </div>
+      </section>
+
+      <p class="origin">元ネタ <a href="https://www.youtube.com/watch?v=Q4gTV4r0zRs" target="_blank" rel="noopener">『フカシギの数え方』おねえさんといっしょ！みんなで数えてみよう！</a></p>
+    </main>
+
+    <script>
+      "use strict";
+      /* ============================================================
+         シングル用 Worker 本体（Blob から生成する。単体で完結させること）
+         - brute:       素朴な深さ優先探索（反復版）
+         - simpathPack: パック方式。frontier 法レイヤDPを、プラグ符号を
+           1セル2bitに詰めた単一数値キーだけで実行する（16×16以下）
+         - simpathPackWide: 17×17以上用。同じ詰め方のままキーだけを
+           BigInt にした広いキー経路（"fastpackwide" で強制使用も可能）
+         対称性で「最初の一手は右固定×2」は全方式共通。
+         ============================================================ */
+      function oneesanWorker() {
+function simpathPack(n, onProgress) {
+          var W = n + 1, V = W * W, S = 0, T = V - 1;
+          var edges = [], r, c, i, v;
+          for (r = 0; r < W; r++) for (c = 0; c < W; c++) {
+            var id = r * W + c;
+            if (c < n) edges.push([id, id + 1]);
+            if (r < n) edges.push([id, id + W]);
+          }
+          var E = edges.length;
+          var lastIdx = new Array(V).fill(-1), firstIdx = new Array(V).fill(1073741824);
+          edges.forEach(function (e, i2) {
+            for (var k = 0; k < 2; k++) {
+              var x = e[k];
+              if (i2 > lastIdx[x]) lastIdx[x] = i2;
+              if (i2 < firstIdx[x]) firstIdx[x] = i2;
+            }
+          });
+          var frontiers = [], posInF = [];
+          for (i = 0; i <= E; i++) {
+            var f = [];
+            for (v = 0; v < V; v++) if (firstIdx[v] < i && lastIdx[v] >= i) f.push(v);
+            frontiers.push(f);
+            var pos = new Array(V).fill(-1);
+            f.forEach(function (vv, ii) { pos[vv] = ii; });
+            posInF.push(pos);
+          }
+          var POW4 = [], POW2 = [], k;
+          for (k = 0; k <= 20; k++) { POW4.push(Math.pow(4, k)); POW2.push(Math.pow(2, k)); }
+          var totalStates = 0, maxStates = 1;
+          var t0 = Date.now(), lastPost = 0;
+          function report(idx, states) {
+            if (!onProgress) return;
+            var now = Date.now();
+            if (now - lastPost >= 250 || idx === E) {
+              lastPost = now;
+              onProgress({ idx: idx, E: E, states: states, totalStates: totalStates, maxStates: maxStates, elapsed: now - t0, lowMem: false });
+            }
+          }
+          // スクラッチ（状態ごとに確保せず使い回す）
+          var codes = new Int8Array(20), degs = new Int8Array(20), matePos = new Int16Array(20), mateVid = new Int32Array(20);
+          var stack = new Int16Array(20);
+          var PACK_RESOLVED = new Int8Array(20);
+          var dp = new Map();
+          dp.set(0, 1n);
+          for (i = 0; i < E; i++) {
+            var u = edges[i][0], w = edges[i][1];
+            var Fi = frontiers[i], Fi1 = frontiers[i + 1], posi = posInF[i], posi1 = posInF[i + 1];
+            var L = Fi.length, L1 = Fi1.length;
+            var pow4L = POW4[L], pow4L1 = POW4[L1];
+            var pu = posi[u], pw = posi[w];
+            var isSRight = (u === S && w === S + 1), isSDown = (u === S && w === S + W);
+            var uLast = lastIdx[u] === i, wLast = lastIdx[w] === i;
+            var pT = posi[T]; // 現 frontier における終点セルの位置（なければ -1）
+            var ndp = new Map();
+            var iterFn = function (cnt, key) {
+              // --- キーをスクラッチへ展開（プラグ符号と次数） ---
+              var plugPart = key % pow4L, degPart = Math.floor(key / pow4L);
+              var q;
+              if (L <= 15) {
+                var pi = plugPart | 0;
+                for (q = 0; q < L; q++) {
+                  var cd = (pi >>> (2 * q)) & 3;
+                  codes[q] = cd;
+                  degs[q] = cd !== 0 ? 1 : (((degPart >> q) & 1) ? 2 : 0);
+                }
+              } else {
+                var tmp = plugPart;
+                for (q = 0; q < L; q++) { var cd2 = tmp % 4; codes[q] = cd2; tmp = (tmp - cd2) / 4; }
+                for (q = 0; q < L; q++) {
+                  if (codes[q] !== 0) degs[q] = 1;
+                  else degs[q] = ((degPart >> q) & 1) ? 2 : 0;
+                }
+              }
+              // --- 各次数1セルの相手頂点を求める ---
+              // 括弧同士の対応は非交差。始点セル（あれば先頭位置）の相手は始点側プラグ X、
+              // 終点セル（あれば末尾位置）の相手は終点側プラグ X で、どちらも括弧ではなく X で
+              // 表されるため、まず始点・終点セルの相手を深さ走査で特定し、残りの括弧を
+              // スタックで対応付ける。始点側プラグは終点側プラグより常に左にある（実測でも全状態で成立）。
+              var pS = posi[S];
+              for (q = 0; q < L; q++) { mateVid[q] = -1; matePos[q] = -1; }
+              var resolved = PACK_RESOLVED; // Int8Array(20) を使い回す
+              for (q = 0; q < L; q++) resolved[q] = 0;
+              // 始点セル → 始点側プラグ
+              if (pS >= 0 && degs[pS] === 1) {
+                if (codes[pS] === 3) { mateVid[pS] = T; resolved[pS] = 1; }
+                else {
+                  var depth = 0, j;
+                  for (j = pS + 1; j < L; j++) {
+                    if (degs[j] !== 1) continue;
+                    if (codes[j] === 1) depth++;
+                    else if (codes[j] === 2) { if (depth > 0) depth--; }
+                    else if (codes[j] === 3 && depth === 0) {
+                      mateVid[pS] = Fi[j]; mateVid[j] = S; resolved[pS] = 1; resolved[j] = 1; break;
+                    }
+                  }
+                }
+              }
+              // 終点セル → 終点側プラグ（または完成マーカー）
+              if (pT >= 0 && degs[pT] === 1) {
+                if (codes[pT] === 3) { mateVid[pT] = S; resolved[pT] = 1; }
+                else {
+                  var depth2 = 0, j2;
+                  for (j2 = pT - 1; j2 >= 0; j2--) {
+                    if (degs[j2] !== 1 || resolved[j2]) continue;
+                    if (codes[j2] === 2) depth2++;
+                    else if (codes[j2] === 1) { if (depth2 > 0) depth2--; }
+                    else if (codes[j2] === 3 && depth2 === 0) {
+                      mateVid[pT] = Fi[j2]; mateVid[j2] = T; resolved[pT] = 1; resolved[j2] = 1; break;
+                    }
+                  }
+                }
+              }
+              // 残り: X は始点側プラグ（始点セルが既に境界外）、括弧はスタックで対応付け
+              var sp = 0;
+              for (q = 0; q < L; q++) {
+                if (degs[q] !== 1 || resolved[q]) continue;
+                if (codes[q] === 3) { mateVid[q] = S; resolved[q] = 1; }
+                else if (codes[q] === 1) stack[sp++] = q;
+                else if (codes[q] === 2) {
+                  var op = stack[--sp];
+                  matePos[op] = q; matePos[q] = op;
+                  mateVid[op] = Fi[q]; mateVid[q] = Fi[op];
+                  resolved[op] = 1; resolved[q] = 1;
+                }
+              }
+              var du = pu >= 0 ? degs[pu] : 0, dw = pw >= 0 ? degs[pw] : 0;
+              var auVid = du === 1 ? mateVid[pu] : -1, avVid = dw === 1 ? mateVid[pw] : -1;
+              for (var branch = 0; branch < 2; branch++) {
+                var include = branch === 1;
+                if (isSRight && !include) continue;
+                if (isSDown && include) continue;
+                var ndu = du, ndw = dw;
+                var mateU = du === 1 ? auVid : w, mateW = dw === 1 ? avVid : u, mateAu = u, mateAv = w;
+                if (include) {
+                  if (du >= 2 || dw >= 2) continue;
+                  if ((u === S || u === T) && du >= 1) continue;
+                  if ((w === S || w === T) && dw >= 1) continue;
+                  if (du === 1 && dw === 1) {
+                    if (auVid === w) continue; // 同じ部分経路の両端 → 閉路
+                    ndu = 2; ndw = 2; mateAu = avVid; mateAv = auVid;
+                  } else if (du === 1) {
+                    ndu = 2; ndw = 1; mateW = auVid; mateAu = w;
+                  } else if (dw === 1) {
+                    ndw = 2; ndu = 1; mateU = avVid; mateAv = u;
+                  } else {
+                    ndu = 1; ndw = 1; mateU = w; mateW = u;
+                  }
+                }
+                if (uLast) { if (u === S || u === T) { if (ndu !== 1) continue; } else if (ndu === 1) continue; }
+                if (wLast) { if (w === S || w === T) { if (ndw !== 1) continue; } else if (ndw === 1) continue; }
+                // --- 次レイヤのキーへ詰め直す ---
+                var newPlug = 0, newDeg = 0, bad = false;
+                for (var q1 = 0; q1 < L1; q1++) {
+                  var x = Fi1[q1], d, mvv;
+                  if (x === u) { d = ndu; mvv = mateU; }
+                  else if (x === w) { d = ndw; mvv = mateW; }
+                  else if (x === auVid) { d = 1; mvv = mateAu; }
+                  else if (x === avVid) { d = 1; mvv = mateAv; }
+                  else {
+                    var p = posi[x];
+                    d = degs[p];
+                    mvv = d === 1 ? mateVid[p] : -1;
+                  }
+                  if (d === 2) { newDeg += POW2[q1]; }
+                  else if (d === 1) {
+                    var code;
+                    if (mvv === S && x !== S) code = 3;
+                    else if (mvv === T && x !== T) code = 3;
+                    else {
+                      var np = posi1[mvv];
+                      if (np === -1) { bad = true; break; }
+                      code = np > q1 ? 1 : 2;
+                    }
+                    newPlug += code * POW4[q1];
+                  }
+                }
+                if (bad) continue;
+                var nkey = newPlug + newDeg * pow4L1;
+                var ex = ndp.get(nkey);
+                if (ex !== undefined) ndp.set(nkey, ex + cnt);
+                else ndp.set(nkey, cnt);
+              }
+            };
+            dp.forEach(iterFn);
+            dp = ndp;
+            totalStates += dp.size;
+            if (dp.size > maxStates) maxStates = dp.size;
+            if (dp.size === 0) break;
+            report(i + 1, dp.size);
+          }
+          var rawTotal = 0n;
+          dp.forEach(function (c) { rawTotal += c; });
+          var total = rawTotal * 2n;
+          return { total: total, totalStates: totalStates, maxStates: maxStates, E: E, elapsed: Date.now() - t0, lowMem: false };
+        }
+
+        // ===== パック方式・広いキー経路（17×17以上） =====
+        // simpathPack と同一の詰め方・遷移規則のまま、状態キーだけを BigInt にした経路。
+        // キーが安全整数に収まる 16×16以下では使わない（従来の Number キー経路が従来どおり動く）。
+function simpathPackWide(n, onProgress) {
+          var W = n + 1, V = W * W, S = 0, T = V - 1;
+          var edges = [], r, c, i, v;
+          for (r = 0; r < W; r++) for (c = 0; c < W; c++) {
+            var id = r * W + c;
+            if (c < n) edges.push([id, id + 1]);
+            if (r < n) edges.push([id, id + W]);
+          }
+          var E = edges.length;
+          var lastIdx = new Array(V).fill(-1), firstIdx = new Array(V).fill(1073741824);
+          edges.forEach(function (e, i2) {
+            for (var k = 0; k < 2; k++) {
+              var x = e[k];
+              if (i2 > lastIdx[x]) lastIdx[x] = i2;
+              if (i2 < firstIdx[x]) firstIdx[x] = i2;
+            }
+          });
+          var frontiers = [], posInF = [];
+          for (i = 0; i <= E; i++) {
+            var f = [];
+            for (v = 0; v < V; v++) if (firstIdx[v] < i && lastIdx[v] >= i) f.push(v);
+            frontiers.push(f);
+            var pos = new Array(V).fill(-1);
+            f.forEach(function (vv, ii) { pos[vv] = ii; });
+            posInF.push(pos);
+          }
+          var POW4 = [], POW2 = [], k;
+          for (k = 0; k <= 32; k++) { POW4.push(Math.pow(4, k)); POW2.push(Math.pow(2, k)); }
+          var totalStates = 0, maxStates = 1;
+          var t0 = Date.now(), lastPost = 0;
+          function report(idx, states) {
+            if (!onProgress) return;
+            var now = Date.now();
+            if (now - lastPost >= 250 || idx === E) {
+              lastPost = now;
+              onProgress({ idx: idx, E: E, states: states, totalStates: totalStates, maxStates: maxStates, elapsed: now - t0, lowMem: false });
+            }
+          }
+          // スクラッチ（状態ごとに確保せず使い回す）
+          var codes = new Int8Array(32), degs = new Int8Array(32), matePos = new Int16Array(32), mateVid = new Int32Array(32);
+          var stack = new Int16Array(32);
+          var PACK_RESOLVED = new Int8Array(32);
+          var dp = new Map();
+          dp.set(0n, 1n);
+          for (i = 0; i < E; i++) {
+            var u = edges[i][0], w = edges[i][1];
+            var Fi = frontiers[i], Fi1 = frontiers[i + 1], posi = posInF[i], posi1 = posInF[i + 1];
+            var L = Fi.length, L1 = Fi1.length;
+            var pow4L = POW4[L], pow4L1 = POW4[L1];
+            var pow4LB = BigInt(pow4L), pow4L1B = BigInt(pow4L1);
+            var pu = posi[u], pw = posi[w];
+            var isSRight = (u === S && w === S + 1), isSDown = (u === S && w === S + W);
+            var uLast = lastIdx[u] === i, wLast = lastIdx[w] === i;
+            var pT = posi[T]; // 現 frontier における終点セルの位置（なければ -1）
+            var ndp = new Map();
+            var iterFn = function (cnt, key) {
+              // --- キーをスクラッチへ展開（プラグ符号と次数） ---
+              var plugPart = Number(key % pow4LB), degPart = Number(key / pow4LB);
+              var q;
+              if (L <= 15) {
+                var pi = plugPart | 0;
+                for (q = 0; q < L; q++) {
+                  var cd = (pi >>> (2 * q)) & 3;
+                  codes[q] = cd;
+                  degs[q] = cd !== 0 ? 1 : (((degPart >> q) & 1) ? 2 : 0);
+                }
+              } else {
+                var tmp = plugPart;
+                for (q = 0; q < L; q++) { var cd2 = tmp % 4; codes[q] = cd2; tmp = (tmp - cd2) / 4; }
+                for (q = 0; q < L; q++) {
+                  if (codes[q] !== 0) degs[q] = 1;
+                  else degs[q] = ((degPart >> q) & 1) ? 2 : 0;
+                }
+              }
+              // --- 各次数1セルの相手頂点を求める ---
+              // 括弧同士の対応は非交差。始点セル（あれば先頭位置）の相手は始点側プラグ X、
+              // 終点セル（あれば末尾位置）の相手は終点側プラグ X で、どちらも括弧ではなく X で
+              // 表されるため、まず始点・終点セルの相手を深さ走査で特定し、残りの括弧を
+              // スタックで対応付ける。始点側プラグは終点側プラグより常に左にある（実測でも全状態で成立）。
+              var pS = posi[S];
+              for (q = 0; q < L; q++) { mateVid[q] = -1; matePos[q] = -1; }
+              var resolved = PACK_RESOLVED; // Int8Array(20) を使い回す
+              for (q = 0; q < L; q++) resolved[q] = 0;
+              // 始点セル → 始点側プラグ
+              if (pS >= 0 && degs[pS] === 1) {
+                if (codes[pS] === 3) { mateVid[pS] = T; resolved[pS] = 1; }
+                else {
+                  var depth = 0, j;
+                  for (j = pS + 1; j < L; j++) {
+                    if (degs[j] !== 1) continue;
+                    if (codes[j] === 1) depth++;
+                    else if (codes[j] === 2) { if (depth > 0) depth--; }
+                    else if (codes[j] === 3 && depth === 0) {
+                      mateVid[pS] = Fi[j]; mateVid[j] = S; resolved[pS] = 1; resolved[j] = 1; break;
+                    }
+                  }
+                }
+              }
+              // 終点セル → 終点側プラグ（または完成マーカー）
+              if (pT >= 0 && degs[pT] === 1) {
+                if (codes[pT] === 3) { mateVid[pT] = S; resolved[pT] = 1; }
+                else {
+                  var depth2 = 0, j2;
+                  for (j2 = pT - 1; j2 >= 0; j2--) {
+                    if (degs[j2] !== 1 || resolved[j2]) continue;
+                    if (codes[j2] === 2) depth2++;
+                    else if (codes[j2] === 1) { if (depth2 > 0) depth2--; }
+                    else if (codes[j2] === 3 && depth2 === 0) {
+                      mateVid[pT] = Fi[j2]; mateVid[j2] = T; resolved[pT] = 1; resolved[j2] = 1; break;
+                    }
+                  }
+                }
+              }
+              // 残り: X は始点側プラグ（始点セルが既に境界外）、括弧はスタックで対応付け
+              var sp = 0;
+              for (q = 0; q < L; q++) {
+                if (degs[q] !== 1 || resolved[q]) continue;
+                if (codes[q] === 3) { mateVid[q] = S; resolved[q] = 1; }
+                else if (codes[q] === 1) stack[sp++] = q;
+                else if (codes[q] === 2) {
+                  var op = stack[--sp];
+                  matePos[op] = q; matePos[q] = op;
+                  mateVid[op] = Fi[q]; mateVid[q] = Fi[op];
+                  resolved[op] = 1; resolved[q] = 1;
+                }
+              }
+              var du = pu >= 0 ? degs[pu] : 0, dw = pw >= 0 ? degs[pw] : 0;
+              var auVid = du === 1 ? mateVid[pu] : -1, avVid = dw === 1 ? mateVid[pw] : -1;
+              for (var branch = 0; branch < 2; branch++) {
+                var include = branch === 1;
+                if (isSRight && !include) continue;
+                if (isSDown && include) continue;
+                var ndu = du, ndw = dw;
+                var mateU = du === 1 ? auVid : w, mateW = dw === 1 ? avVid : u, mateAu = u, mateAv = w;
+                if (include) {
+                  if (du >= 2 || dw >= 2) continue;
+                  if ((u === S || u === T) && du >= 1) continue;
+                  if ((w === S || w === T) && dw >= 1) continue;
+                  if (du === 1 && dw === 1) {
+                    if (auVid === w) continue; // 同じ部分経路の両端 → 閉路
+                    ndu = 2; ndw = 2; mateAu = avVid; mateAv = auVid;
+                  } else if (du === 1) {
+                    ndu = 2; ndw = 1; mateW = auVid; mateAu = w;
+                  } else if (dw === 1) {
+                    ndw = 2; ndu = 1; mateU = avVid; mateAv = u;
+                  } else {
+                    ndu = 1; ndw = 1; mateU = w; mateW = u;
+                  }
+                }
+                if (uLast) { if (u === S || u === T) { if (ndu !== 1) continue; } else if (ndu === 1) continue; }
+                if (wLast) { if (w === S || w === T) { if (ndw !== 1) continue; } else if (ndw === 1) continue; }
+                // --- 次レイヤのキーへ詰め直す ---
+                var newPlug = 0, newDeg = 0, bad = false;
+                for (var q1 = 0; q1 < L1; q1++) {
+                  var x = Fi1[q1], d, mvv;
+                  if (x === u) { d = ndu; mvv = mateU; }
+                  else if (x === w) { d = ndw; mvv = mateW; }
+                  else if (x === auVid) { d = 1; mvv = mateAu; }
+                  else if (x === avVid) { d = 1; mvv = mateAv; }
+                  else {
+                    var p = posi[x];
+                    d = degs[p];
+                    mvv = d === 1 ? mateVid[p] : -1;
+                  }
+                  if (d === 2) { newDeg += POW2[q1]; }
+                  else if (d === 1) {
+                    var code;
+                    if (mvv === S && x !== S) code = 3;
+                    else if (mvv === T && x !== T) code = 3;
+                    else {
+                      var np = posi1[mvv];
+                      if (np === -1) { bad = true; break; }
+                      code = np > q1 ? 1 : 2;
+                    }
+                    newPlug += code * POW4[q1];
+                  }
+                }
+                if (bad) continue;
+                var nkey = BigInt(newPlug) + BigInt(newDeg) * pow4L1B;
+                var ex = ndp.get(nkey);
+                if (ex !== undefined) ndp.set(nkey, ex + cnt);
+                else ndp.set(nkey, cnt);
+              }
+            };
+            dp.forEach(iterFn);
+            dp = ndp;
+            totalStates += dp.size;
+            if (dp.size > maxStates) maxStates = dp.size;
+            if (dp.size === 0) break;
+            report(i + 1, dp.size);
+          }
+          var rawTotal = 0n;
+          dp.forEach(function (c) { rawTotal += c; });
+          var total = rawTotal * 2n;
+          return { total: total, totalStates: totalStates, maxStates: maxStates, E: E, elapsed: Date.now() - t0, lowMem: false };
+        }
+
+function brute(n, onProgress) {
+          var W = n + 1, V = W * W, S = 0, T = V - 1;
+          var adj = [], r, c;
+          for (r = 0; r < W; r++) for (c = 0; c < W; c++) {
+            var id = r * W + c, a = [];
+            if (c > 0) a.push(id - 1);
+            if (c < n) a.push(id + 1);
+            if (r > 0) a.push(id - W);
+            if (r < n) a.push(id + W);
+            adj.push(a);
+          }
+          var visited = new Uint8Array(V);
+          var first = 1; // 対称性: 最初の一手は右 (0,1) に固定
+          visited[S] = 1; visited[first] = 1;
+          var path = [S, first];
+          var frames = [{ v: first, i: 0 }];
+          var count = 0n, steps = 0, iter = 0;
+          var t0 = Date.now(), lastPost = 0;
+          while (frames.length) {
+            var fr = frames[frames.length - 1];
+            if (fr.i < adj[fr.v].length) {
+              var nb = adj[fr.v][fr.i++];
+              steps++;
+              if (nb === T) { count++; } // ゴール到達: それ以上伸ばさない
+              else if (!visited[nb]) {
+                visited[nb] = 1; path.push(nb); frames.push({ v: nb, i: 0 });
+              }
+            } else {
+              frames.pop(); visited[fr.v] = 0; path.pop();
+            }
+            if (onProgress && ((++iter & 8191) === 0)) {
+              var now = Date.now();
+              if (now - lastPost >= 90) {
+                lastPost = now;
+                onProgress({ count: count.toString(), steps: steps, path: path.slice(), elapsed: now - t0 });
+              }
+            }
+          }
+          return { total: count * 2n, steps: steps, elapsed: Date.now() - t0 };
+        }
+
+        self.onmessage = function (ev) {
+          var m = ev.data;
+          try {
+            if (m.type === "fastpack") {
+              var useWide = m.n >= 17;
+              var fn = useWide ? simpathPackWide : simpathPack;
+              var rp = fn(m.n, function (p) {
+                self.postMessage({ type: "progress", mode: "fastpack", idx: p.idx, E: p.E, states: p.states, totalStates: p.totalStates, maxStates: p.maxStates, elapsed: p.elapsed, lowMem: false });
+              });
+              self.postMessage({ type: "done", mode: "fastpack", n: m.n, count: rp.total.toString(), totalStates: rp.totalStates, maxStates: rp.maxStates, edges: rp.E, elapsed: rp.elapsed, lowMem: false });
+            } else if (m.type === "fastpackwide") {
+              // ハーネス検証用: 小さいサイズでも広いキー（BigIntキー）を強制使用する
+              var rw = simpathPackWide(m.n, function (p) {
+                self.postMessage({ type: "progress", mode: "fastpackwide", idx: p.idx, E: p.E, states: p.states, totalStates: p.totalStates, maxStates: p.maxStates, elapsed: p.elapsed, lowMem: false });
+              });
+              self.postMessage({ type: "done", mode: "fastpackwide", n: m.n, count: rw.total.toString(), totalStates: rw.totalStates, maxStates: rw.maxStates, edges: rw.E, elapsed: rw.elapsed, lowMem: false });
+            } else if (m.type === "brute") {
+              var rb = brute(m.n, function (p) {
+                self.postMessage({ type: "progress", mode: "brute", count: p.count, steps: p.steps, path: p.path, elapsed: p.elapsed });
+              });
+              self.postMessage({ type: "done", mode: "brute", n: m.n, count: rb.total.toString(), steps: rb.steps, elapsed: rb.elapsed });
+            } else if (m.type === "selftest") {
+              var outPack = {};
+              for (var n = 1; n <= 5; n++) {
+                outPack[n] = simpathPack(n, null).total.toString();
+              }
+              self.postMessage({ type: "selftest", resultsPack: outPack });
+            }
+          } catch (err) {
+            self.postMessage({ type: "error", message: String(err && err.message ? err.message : err) });
+          }
+        };
+      }
+    </script>
+    <script>
+"use strict";
+/* ================= メインスレッド（スマートフォン版） ================= */
+// 検証専用の既知値。当アプリの n（マスの数）に対して OEIS A007764 の a(n+1) に相当。
+var KNOWN = {
+1: "2", 2: "12", 3: "184", 4: "8512", 5: "1262816", 6: "575780564",
+7: "789360053252", 8: "3266598486981642", 9: "41044208702632496804",
+10: "1568758030464750013214100",
+11: "182413291514248049241470885236",
+12: "64528039343270018963357185158482118",
+13: "69450664761521361664274701548907358996488",
+14: "227449714676812739631826459327989863387613323440",
+15: "2266745568862672746374567396713098934866324885408319028",
+16: "68745445609149931587631563132489232824587945968099457285419306",
+17: "6344814611237963971310297540795524400449443986866480693646369387855336",
+18: "1782112840842065129893384946652325275167838065704767655931452474605826692782532",
+19: "1523344971704879993080742810319229690899454255323294555776029866737355060592877569255844",
+20: "3962892199823037560207299517133362502106339705739463771515237113377010682364035706704472064940398"
+};
+var MAX_N = 16;
+var $ = function (id) { return document.getElementById(id); };
+var board = $("board"), ctx = board.getContext("2d");
+var sizeGrid = $("sizeGrid");
+var stopBtn = $("stopBtn"), teachCheck = $("teachCheck");
+var statusText = $("statusText"), sizeBig = $("sizeBig");
+var resCount = $("resCount"), resDigits = $("resDigits"), resTime = $("resTime");
+
+var size = null; // 現在の n（初期状態は未選択）
+var running = false;
+var worker = null, workerUrl = null; // シングル用 Worker
+var runMode = null, runSize = 0, runStart = 0, timerId = null;
+var lastProgress = null; // 停止時に表示する途中経過
+var results = { brute: {}, fastpack: {} };
+var viewPath = null; // 描画する経路（探索中 or 例）
+var viewFrontierIdx = -1; // 高速系実行中の処理済み辺数（-1: 非表示）
+var darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+/* ---------- 書式 ---------- */
+function fmtNum(raw) {
+return String(raw).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+/* 日本語の単位表記: 右から4桁ずつ区切り、万・億・兆…の単位を付ける。
+   値が0のグループは省略。無量大数（10^68）より上の桁は無量大数の係数にまとめる。 */
+function fmtJP(raw) {
+var s = String(raw).replace(/^0+/, "") || "0";
+if (s === "0") return "0";
+var UNITS = ["", "万", "億", "兆", "京", "垓", "秭", "穣", "溝", "澗", "正", "載", "極", "恒河沙", "阿僧祇", "那由他", "不可思議", "無量大数"];
+var head = "", rest = s;
+if (s.length > 68) { head = s.slice(0, s.length - 68); rest = s.slice(s.length - 68);}
+var groups = [];
+for (var i = rest.length; i > 0; i -= 4) groups.unshift(rest.slice(Math.max(0, i - 4), i));
+var out = head? head + "無量大数": "";
+for (var g = 0; g < groups.length; g++) {
+var idx = groups.length - 1 - g;
+var v = parseInt(groups[g], 10);
+if (v === 0) continue;
+out += String(v) + UNITS[idx];
+}
+return out || "0";
+}
+function fmtMs(ms) {
+if (ms < 1000) return Math.round(ms) + " ms";
+if (ms < 60000) return (ms / 1000).toFixed(2) + " 秒";
+var m = Math.floor(ms / 60000), s = ((ms % 60000) / 1000).toFixed(1);
+return m + " 分 " + s + " 秒";
+}
+
+/* ---------- 格子ジオメトリ（Worker と同じ辺順序） ---------- */
+function buildEdges(n) {
+var W = n + 1, edges = [], r, c;
+for (r = 0; r < W; r++) for (c = 0; c < W; c++) {
+var id = r * W + c;
+if (c < n) edges.push([id, id + 1]);
+if (r < n) edges.push([id, id + W]);
+}
+return edges;
+}
+function frontierAt(n, edges, idx) {
+var W = n + 1, V = W * W;
+var last = new Array(V).fill(-1), first = new Array(V).fill(1073741824);
+edges.forEach(function (e, i) {
+for (var k = 0; k < 2; k++) {
+var x = e[k];
+if (i > last[x]) last[x] = i;
+if (i < first[x]) first[x] = i;
+}
+});
+var out = [];
+for (var v = 0; v < V; v++) if (first[v] < idx && last[v] >= idx) out.push(v);
+return out;
+}
+
+/* ---------- Canvas 描画 ---------- */
+function cssVar(name) {
+return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+function fitCanvas() {
+var w = board.clientWidth, h = board.clientHeight;
+if (!w || !h) return;
+var dpr = Math.min(window.devicePixelRatio || 1, 2);
+var bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+if (board.width !== bw || board.height !== bh) { board.width = bw; board.height = bh; }
+draw();
+}
+function draw() {
+var w = board.clientWidth, h = board.clientHeight;
+if (!w || !h || !board.width) return;
+var dpr = board.width / w;
+ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+ctx.clearRect(0, 0, w, h);
+var pal = {
+grid: cssVar("--grid-line"), path: cssVar("--path"),
+processed: cssVar("--processed"), frontier: cssVar("--frontier"),
+markerBg: cssVar("--marker-bg"), markerInk: cssVar("--marker-ink")
+};
+var n = size || 9, W = n + 1;
+var markerR = Math.max(11, w * 0.062);
+var ox = markerR * 0.9, oy = markerR * 0.9;
+var cell = (w - ox * 2) / n;
+function px(v) { return ox + (v % W) * cell; }
+function py(v) { return oy + Math.floor(v / W) * cell; }
+var edges = buildEdges(n);
+// 辺
+for (var i = 0; i < edges.length; i++) {
+var a = edges[i][0], b = edges[i][1];
+ctx.beginPath(); ctx.moveTo(px(a), py(a)); ctx.lineTo(px(b), py(b));
+if (viewFrontierIdx >= 0) {
+if (i < viewFrontierIdx) { ctx.strokeStyle = pal.processed; ctx.lineWidth = 2; }
+else if (i === viewFrontierIdx) { ctx.strokeStyle = pal.path; ctx.lineWidth = 2.5; }
+else { ctx.strokeStyle = pal.grid; ctx.lineWidth = 1.2; }
+} else {
+ctx.strokeStyle = pal.grid; ctx.lineWidth = 1.2;
+}
+ctx.stroke();
+}
+// frontier の点
+if (viewFrontierIdx >= 0) {
+var fr = frontierAt(n, edges, viewFrontierIdx);
+ctx.fillStyle = pal.frontier;
+for (var j = 0; j < fr.length; j++) {
+ctx.beginPath(); ctx.arc(px(fr[j]), py(fr[j]), Math.max(3, cell * 0.13), 0, Math.PI * 2); ctx.fill();
+}
+}
+// 経路
+if (viewPath && viewPath.length > 1) {
+ctx.beginPath();
+ctx.moveTo(px(viewPath[0]), py(viewPath[0]));
+for (var k = 1; k < viewPath.length; k++) ctx.lineTo(px(viewPath[k]), py(viewPath[k]));
+ctx.strokeStyle = pal.path;
+ctx.lineWidth = Math.max(2.5, cell * 0.17);
+ctx.lineJoin = "round"; ctx.lineCap = "round";
+ctx.stroke();
+var head = viewPath[viewPath.length - 1];
+ctx.beginPath(); ctx.arc(px(head), py(head), Math.max(3, cell * 0.14), 0, Math.PI * 2);
+ctx.fillStyle = pal.path; ctx.fill();
+}
+// スタート / ゴール（黒丸マーカー）
+var S = 0, T = W * W - 1;
+function marker(v, ch) {
+ctx.beginPath(); ctx.arc(px(v), py(v), markerR, 0, Math.PI * 2);
+ctx.fillStyle = pal.markerBg; ctx.fill();
+ctx.fillStyle = pal.markerInk;
+ctx.font = "400 " + Math.round(markerR * 1.05) + "px Georgia, 'Times New Roman', serif";
+ctx.textAlign = "center"; ctx.textBaseline = "middle";
+ctx.fillText(ch, px(v), py(v) + markerR * 0.06);
+}
+marker(S, "S");
+marker(T, "G");
+}
+
+/* ---------- 経路の例（1本だけ探す） ---------- */
+function findOnePath(n) {
+var W = n + 1, V = W * W, S = 0, T = V - 1;
+var adj = [], r, c;
+for (r = 0; r < W; r++) for (c = 0; c < W; c++) {
+var id = r * W + c, a = [];
+if (c < n) a.push(id + 1);
+if (r < n) a.push(id + W);
+if (c > 0) a.push(id - 1);
+if (r > 0) a.push(id - W);
+adj.push(a);
+}
+var visited = new Uint8Array(V);
+visited[S] = 1;
+var path = [S], frames = [{ v: S, i: 0 }], steps = 0;
+while (frames.length) {
+if (++steps > 3000000) return null;
+var f = frames[frames.length - 1];
+if (f.i < adj[f.v].length) {
+var nb = adj[f.v][f.i++];
+if (nb === T) { path.push(T); return path; }
+if (!visited[nb]) { visited[nb] = 1; path.push(nb); frames.push({ v: nb, i: 0 }); }
+} else { frames.pop(); visited[f.v] = 0; path.pop(); }
+}
+return null;
+}
+
+/* ---------- 選択 UI ---------- */
+(function buildSizes() {
+var html = "";
+for (var n = 1; n <= MAX_N; n++) {
+html += "<button type=\"button\" class=\"size-btn num\" data-n=\"" + n + "\" aria-pressed=\"" + (n === size) + "\">" + n + "×" + n + "</button>";
+}
+sizeGrid.innerHTML = html;
+sizeGrid.addEventListener("click", function (ev) {
+var btn = ev.target.closest(".size-btn");
+if (!btn || running) return;
+size = parseInt(btn.getAttribute("data-n"), 10);
+refreshSizeUI();
+startRun(teachCheck.checked);
+});
+})();
+function refreshSizeUI() {
+var btns = sizeGrid.querySelectorAll(".size-btn");
+btns.forEach(function (b) { b.setAttribute("aria-pressed", String(parseInt(b.getAttribute("data-n"), 10) === size)); });
+sizeBig.textContent = size ? size + "×" + size : "—";
+viewPath = null; viewFrontierIdx = -1;
+showStored(); draw();
+}
+
+/* ---------- 結果表示 ---------- */
+function setCountJP(raw, suffix) {
+resCount.innerHTML = "";
+resCount.appendChild(document.createTextNode(fmtJP(raw)));
+var sp = document.createElement("span");
+sp.className = "suffix";
+sp.textContent = suffix || "通り";
+resCount.appendChild(sp);
+}
+function showStored(preferMode) {
+if (!size) {
+resCount.textContent = "—";
+resDigits.textContent = "";
+resTime.textContent = "—";
+statusText.textContent = "";
+viewPath = null;
+return;
+}
+var rec = preferMode ? results[preferMode][size] : (results.fastpack[size] || results.brute[size]);
+if (rec) {
+setCountJP(rec.count);
+resDigits.textContent = fmtNum(rec.count) + "（" + rec.count.length + " 桁）";
+resTime.textContent = fmtMs(rec.ms);
+statusText.textContent = "完了";
+viewPath = findOnePath(size);
+} else {
+resCount.textContent = "—";
+resDigits.textContent = "";
+resTime.textContent = "—";
+statusText.textContent = "";
+viewPath = null;
+}
+}
+
+/* ---------- Worker 生成 ---------- */
+function getWorkerUrl() {
+if (!workerUrl) {
+var src = "\"use strict\";\n(" + oneesanWorker.toString() + ")();";
+workerUrl = URL.createObjectURL(new Blob([src], { type: "text/javascript" }));
+}
+return workerUrl;
+}
+
+/* ---------- 実行管理 ---------- */
+function setRunningUI(on) {
+teachCheck.disabled = on;
+stopBtn.disabled = !on;
+sizeGrid.querySelectorAll(".size-btn").forEach(function (b) { b.disabled = on; });
+}
+function cleanupWorker() {
+if (worker) { worker.terminate(); worker = null; }
+}
+function finishRun() {
+running = false;
+cleanupWorker();
+if (timerId) { clearInterval(timerId); timerId = null; }
+setRunningUI(false);
+}
+function beginRunUI(fastLike) {
+running = true; runSize = size; runStart = Date.now();
+lastProgress = null;
+viewFrontierIdx = fastLike ? 0 : -1;
+setRunningUI(true);
+resCount.textContent = fastLike ? "計算中…" : "0";
+resDigits.textContent = "";
+resTime.textContent = "0 ms";
+statusText.textContent = "計算中…";
+timerId = setInterval(function () {
+resTime.textContent = fmtMs(Date.now() - runStart);
+}, 200);
+}
+function startRun(fast) {
+if (running) return;
+runMode = fast ? "fastpack" : "brute";
+beginRunUI(fast);
+viewPath = fast ? null : [0, 1];
+draw();
+worker = new Worker(getWorkerUrl());
+worker.onmessage = onWorkerMessage;
+worker.onerror = function () {
+if (!running) return;
+finishRun();
+statusText.textContent = "エラーで停止しました";
+resCount.textContent = "—";
+};
+worker.postMessage({ type: runMode, n: runSize });
+}
+function onWorkerMessage(ev) {
+var m = ev.data;
+if (!m || !running) return;
+if (m.type === "progress") {
+lastProgress = m;
+if (m.mode === "brute") {
+viewPath = m.path;
+setCountJP((BigInt(m.count) * 2n).toString());
+resDigits.textContent = "（数え上げ途中）";
+} else {
+viewFrontierIdx = m.idx;
+}
+draw();
+return;
+}
+if (m.type === "done") {
+results[m.mode][m.n] = { count: m.count, ms: m.elapsed };
+var doneSize = m.n;
+finishRun();
+statusText.textContent = "完了";
+viewFrontierIdx = -1;
+showStored(m.mode === "fastpack" ? "fastpack" : "brute");
+viewPath = findOnePath(doneSize);
+draw();
+return;
+}
+if (m.type === "error") {
+finishRun();
+statusText.textContent = "エラーで停止しました";
+resCount.textContent = "—";
+}
+}
+function stopRun() {
+if (!running) return;
+var wasMode = runMode, lp = lastProgress;
+finishRun();
+statusText.textContent = "停止しました";
+viewFrontierIdx = -1;
+if (wasMode === "brute" && lp) {
+setCountJP((BigInt(lp.count) * 2n).toString());
+resDigits.textContent = "（停止時点・未確定）";
+viewPath = lp.path || null;
+} else {
+resCount.textContent = "—";
+resDigits.textContent = "";
+viewPath = null;
+}
+draw();
+}
+
+stopBtn.addEventListener("click", stopRun);
+
+/* ---------- 初期化 ---------- */
+if (window.ResizeObserver) {
+new ResizeObserver(function () { fitCanvas(); }).observe(board);
+}
+window.addEventListener("resize", fitCanvas);
+if (darkQuery.addEventListener) darkQuery.addEventListener("change", draw);
+refreshSizeUI();
+fitCanvas();
+draw();
+    </script>
+  </body>
+</html>
