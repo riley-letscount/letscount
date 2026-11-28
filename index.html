@@ -236,10 +236,10 @@
         <h1>同じ所を2度通らない道順の数</h1>
         <p class="simple-link"><a href="https://riley-letscount.github.io/letscount/simple.html" target="_blank" rel="noopener">シンプル版（スマートフォン向け）はこちら</a></p>
         <p class="lead">
-          アニメ『フカシギの数え方』に登場するコンピュータを題材にしたプログラムです。
-          通常モードは全探索、「おねえさんに教えてあげる」を使うと高速で数えます。
+          アニメ『フカシギの数え方』に登場するコンピュータを題材に、格子上の自己回避経路の総数を数えるプログラムです。
+          通常モードでは深さ優先探索による全探索を行い、高速モード（「おねえさんに教えてあげる」）では frontier 法によって状態を集約しながら数え上げます。
           このページの下部から<strong>Windows用とMac用のローカル版（GUIアプリ）もダウンロード</strong>できます。
-          参考：<a href="https://shogo82148.github.io/letscount/">shogo82148</a>、元ネタ：<a href="https://www.youtube.com/watch?v=Q4gTV4r0zRs">『フカシギの数え方』おねえさんといっしょ！みんなで数えてみよう！</a>
+          参考：<a href="https://shogo82148.github.io/letscount/">shogo82148</a>、原作：<a href="https://www.youtube.com/watch?v=Q4gTV4r0zRs">『フカシギの数え方』おねえさんといっしょ！みんなで数えてみよう！</a>
         </p>
       </header>
 
@@ -287,6 +287,7 @@
               <p id="singleBanner" class="method-banner" hidden>パック方式（プラグ符号を1セル2bitにパック）・シングルで実行します</p>
             </div>
             <div id="multiOpts" hidden>
+              <p class="note" style="margin:0 0 8px">マルチの保持方式は、キー順に整列した密な型付き配列です（キー8バイト＋件数48バイト＝1状態56バイト）。件数は基数1e9・12肢の肢表現で持ち（上限108桁）、シャードの割り当ては静的です。詳しい仕組みは下の「仕組み」欄にあります。</p>
               <div class="ctl-label" id="coreLabel">コア（Worker）数</div>
               <select id="coreSel" class="worker-sel num" aria-labelledby="coreLabel"></select>
               <div class="note-stack">
@@ -294,7 +295,7 @@
                 <p class="note note-sizer" style="margin:0" aria-hidden="true">自動：128コア使用（このデバイスの論理コア数 128、上限128に合わせました）</p>
               </div>
               <p class="note" style="margin:0 0 8px">「自動」のコア数はブラウザが報告する値（navigator.hardwareConcurrency）です。端末によってはプライバシー保護のため実際の論理コア数より小さい値になる場合があります（iPhone では 4、Mac の Safari では最大 8 など）。実際の数と異なる場合は手動で変更してください。</p>
-              <p class="method-banner">マルチ（レイヤ並列＋シャーディング・パック方式）で実行します</p>
+              <p class="method-banner" id="multiBanner">マルチ（レイヤ並列＋静的シャーディング、保持は密な整列配列）で実行します</p>
             </div>
             </div>
             <div class="ctl-label" id="sizeLabel">マス目の大きさ</div>
@@ -304,9 +305,9 @@
             </div>
             <div class="warn-slot">
               <div id="warnBox" class="warn" hidden></div>
-              <div class="warn warn-sizer" aria-hidden="true">20×20 は状態数が 16×16 からさらに桁違いに増え、数十GB級のメモリが必要になる可能性が高く、通常のPCでも完走は困難です。スマートフォンではほぼ確実にメモリ不足で落ちます。終わる保証はありません（時間もメモリも未知数です）。開始はできますが、止めるときは「停止」ボタンを押してください（停止時点の数字は未確定です）。</div>
+              <div class="warn warn-sizer" aria-hidden="true">20×20 は状態数が 16×16 よりさらに大幅に増加し、数十GB級のメモリが必要になる可能性が高く、通常のPCでも最後まで計算を終えることは困難です。スマートフォンではほぼ確実にメモリ不足のため処理が終了します。終了までに必要な時間とメモリ量は、事前には確定できません。開始はできますが、止めるときは「停止」ボタンを押してください（停止時点の数字は未確定です）。</div>
             </div>
-            <p class="note">計算は Web Worker で実行します（マルチでは複数の Worker）。計算中も画面は固まりません。仕組みの詳しい説明は下の「中身」欄にあります。</p>
+            <p class="note">計算は Web Worker で実行します（マルチでは複数の Worker）。計算中も画面の表示は停止しません。仕組みの詳しい説明は下の「仕組み」欄にあります。</p>
         </section>
 
       <section class="card result" aria-label="結果">
@@ -322,6 +323,7 @@
               <div><dt>モード</dt><dd id="resMode">—</dd></div>
               <div><dt>所要時間</dt><dd id="resTime" class="num">—</dd></div>
               <div><dt>探索量</dt><dd id="resWork">—</dd></div>
+              <div><dt>メモリ目安</dt><dd id="resMem">—</dd></div>
               <div><dt>対称性</dt><dd>最初の一手を右に固定し、最後に2倍（全モード共通）</dd></div>
               <div><dt>検証</dt><dd id="resVerify">—</dd></div>
               <div id="ratioRow" hidden><dt>速度の比較</dt><dd id="resRatio"></dd></div>
@@ -344,25 +346,34 @@
         </section>
 
         <section class="card howto" aria-label="高速化の仕組み">
-          <h2>「教えてあげる」とマルチの中身 — なぜ速いのか</h2>
+          <h2>計数アルゴリズムと並列化の仕組み</h2>
           <p>
-            高速モードは、ZDD そのものを全部構築するのではなく、<strong>Simpath（frontier 法）</strong>で
-            「ZDD のノード共有と等価なメモ化」を行う実装です。シングル／マルチとも状態の表し方と遷移規則は
-            <strong>パック方式</strong>で共通です。速度の本体は次の工夫です。
+            本プログラムが数えるのは、<code>n×n</code> のマス目（格子点 <code>(n+1)×(n+1)</code> 個）上で、
+            左上の始点から右下の終点へ至る、同じ格子点を二度通らない経路（自己回避経路）の総数です。
+            高速モード（「おねえさんに教えてあげる」）では、経路を1本ずつ列挙するのではなく、
+            frontier 法（frontier-based dynamic programming）の一種である <strong>Simpath アルゴリズム</strong>を用い、
+            部分経路に関する情報を状態として集約しながら数え上げます。Simpath は、ゼロサプレス型二分決定図（ZDD）の
+            節点共有と等価な合流を、決定図そのものを構築することなく実行する手法です。
+            以下、状態表現、状態遷移、並列化方法、採用したデータ構造とその実測上の根拠を順に述べます。
+            シングル／マルチのいずれでも、状態の表し方と遷移規則は共通です。
           </p>
           <ul>
-            <li><strong>frontier（境界）を小さく保つ：</strong>辺を行優先（上から下、左から右）に1本ずつ処理すると、処理済みと未処理の両方に触れている点は最大でも <code>n+1</code> 個程度しかありません。覚えるべき状態はこの境界分だけです。</li>
-            <li><strong>mate（端点ペアリング）の共有：</strong>frontier 上の各点について、処理済みの辺でできた部分経路の「端点同士のつながり（mate）」を状態にします。同じ mate 状態に到達した部分探索は1つに合流し、経路数を BigInt で合算します。これが組み合わせ爆発を抑えます。状態の Map は辺 1 本分のレイヤごとに作り替え、不要になった世代は解放します。</li>
-            <li><strong>パック方式（2bitパック）：</strong>状態を「単一の数値キー → 件数（BigInt）」だけで保持し、遷移はキーに対するビット演算（プラグ符号の抽出、括弧の対応付け、フィールドの書き換え）で完結させます。キーは、プラグ符号を1セル2bit（0=プラグなし、1=開き括弧、2=閉じ括弧、3=X）に詰めた部分と、次数2のセルを示す1セル1bitの印を、同じ整数に収めたものです。始点につながる端点プラグと終点につながる端点プラグはどちらも同じ記号 X で表します。終点側のプラグは「終点セル自身の括弧の相手」として判別でき、始点側のプラグは常にその左に現れるため、この統合で異なる状態が衝突することはありません。Xと括弧プラグの接続では端点側が部分経路を吸収して結果も X になり、X同士の接続は始点側と終点側の接続（経路の完成）に対応します。16×16以下ではキーは安全整数（Number）に収まりますが、17×17以上では溢れるため、同じ詰め方のままキーだけを BigInt に切り替えます（詰め方・遷移規則は同一です）。</li>
-            <li><strong>マルチ（シャーディング）：</strong>マルチモードでは、次レイヤの状態表をキーのハッシュで Worker 数ぶんのシャードに分割し、各 Worker が自分のシャードだけを保持・合流します。どの Worker も全体を計算し直すことはないので、並列化しても総作業量は増えません。各 Worker は生成した（キー, 件数）を宛先シャードごとに仕分けて型付き配列に詰め、メインスレッド経由で転送します（件数は基数1e9の肢に分解して載せます）。メインスレッドは中継とバリア同期だけで、合流計算はしません。状態数が少ない序盤のレイヤでは、転送の無駄を避けるため Worker 1台だけで処理し、大きくなった時点でシャードへ分配します。合流はこのシャーディング＋Map 合流のみで、ソート方式は使っていません。</li>
-            <li><strong>対称性：</strong>最初の一手は右か下しかなく、転置対称で両方の経路数は等しくなります。右に固定して数え、最後に2倍します。</li>
-            <li><strong>枝刈り：</strong>ゴールに到達した経路はそれ以上伸ばさない／次数が2を超える辺・始点と終点の次数1を超える辺は入れない／部分経路の両端を結んで閉路になる接続は捨てる／frontier から外れる点に端点（次数1）が残っていたら行き止まりとして打ち切ります。</li>
-            <li><strong>環境による差：</strong>マルチの効果はコア数とブラウザ次第です。コアの少ない端末や iPhone では、転送と合流の分だけシングルより遅くなる場合があります。マルチはコア数の多いデスクトップ（特に Windows）での利用を想定しています。</li>
-            <li><strong>表示の軽量化：</strong>通常モードの経路描画は約90msごと、高速モードの進捗報告は250msごとに間引きます。大きな数は桁区切り＋桁数で表示します。</li>
+            <li><strong>frontier（境界）：</strong>格子の辺を行優先順序（上から下、左から右）で1本ずつ処理します。各時点で、処理済みの辺と未処理の辺の双方に接続する格子点の集合を frontier と呼びます。その大きさは最大でも <code>n+1</code> 個程度であり、保持すべき状態はこの frontier 上の情報に限定されます。状態表は辺1本の処理（レイヤ）ごとに次世代へ作り替え、前世代は解放します。</li>
+            <li><strong>状態表現（mate）：</strong>各状態は、frontier 上の各格子点の次数（0、1、または2）と、次数1の格子点（部分経路の端点）同士の対応関係（mate）から構成されます。部分経路同士は交差しないため、この対応は非交差マッチングとなり、括弧列として表すことができます。同一の状態に到達した部分探索は区別せず1つに合流させ、それぞれが表す経路数を合算します。この合流が、経路を個別に列挙する場合との計算量の差を生みます。件数（経路数）の保持方法は、シングルでは BigInt、マルチでは後述する基数1e9の肢表現です。</li>
+            <li><strong>状態の符号化（2ビットパック）：</strong>状態は「単一の数値キーと件数の組」として保持し、遷移はキーに対するビット演算（プラグ符号の抽出、括弧の対応付け、フィールドの書き換え）のみで実行します。キーは、frontier の各セルについてプラグ符号を1セル2ビット（0＝プラグなし、1＝開き括弧、2＝閉じ括弧、3＝X）で表した部分と、次数2のセルを1セル1ビットで示す部分を、1つの整数に詰めたものです。始点に接続する端点プラグと終点に接続する端点プラグは、どちらも同じ記号 X で表します。この統合が異なる状態を混同しないのは、終点側のプラグは終点セル自身の括弧の相手として判別でき、始点側のプラグは常にその左に現れるためです。X と括弧プラグを接続すると端点側が部分経路を吸収して結果も X となり、X 同士の接続は始点側と終点側の接続、すなわち経路の完成に対応します。キーは16×16以下では JavaScript の安全整数（Number）の範囲に収まりますが、17×17以上では収まらないため、符号化と遷移規則はそのままに、キーの型のみを BigInt に切り替えます。</li>
+            <li><strong>並列化（シャーディングとバリア同期）：</strong>マルチモードでは、次レイヤの状態表を、キーのハッシュ値によって Worker 数と同数のシャードへ分割します。各シャードは互いに素であり、その和集合は状態表全体と一致するため、各 Worker が担当するシャードだけを保持・合流しても、状態の重複や欠落は生じません。各 Worker は、生成した（キー, 件数）の組を宛先シャードごとに仕分けし、型付き配列に詰めてメインスレッド経由で転送します（件数は基数1e9の肢に分解して転送します）。メインスレッドはデータの中継と、レイヤごとのバリア同期のみを行い、状態の合流計算は行いません。なお、状態数が4,096未満のレイヤでは転送量に対して計算量が小さいため、単一の Worker で処理し、状態数がこの値以上になった時点でシャードへ分配します。</li>
+            <li><strong>状態表のデータ構造と件数の表現：</strong>マルチの状態表は、連想配列（Map）ではなく、キー順に整列した密な型付き配列で保持します。1状態の内訳は、キー（下位・上位各4バイト）と件数（基数1e9・12肢＝48バイト）の計56バイトです。合流は、生成したレコードをキー順に整列し、線形走査によって同一キーの件数を合算する方式で行います。Map のエントリやオブジェクトを介さないため1状態あたりの容量は小さくなりますが、その代償として、レイヤごとに整列のための計算が必要になります。件数を BigInt ではなく基数1e9の肢（limb）の列として保持するため、合流のたびに BigInt オブジェクトを割り当てる処理も生じません。肢数は12であり、表せる上限は108桁です。これは19×19の経路数（88桁）と20×20の経路数（97桁）を上回るため、全サイズで桁あふれは生じません。シャードの割り当ては静的です（各 Worker が自分のシャードを担当します）。</li>
+            <li><strong>測定結果と、採用しなかった方式：</strong>保持方式の効果を測定した結果の一例では、Map で保持する方式に対して、13×13で9.95秒から8.69秒へ（約13%の短縮）、14×14で39.61秒から29.33秒へ（約26%の短縮）となり、サイズが大きいほど短縮率が広がりました。これは、サイズの増大に伴って状態表の合流にかかる処理の割合が増えることと整合します。一方、処理の空いた Worker が他のシャードの処理を引き受ける動的な割り当てについては、同じ測定で13×13が9.25秒、14×14が29.57秒と、静的な割り当て（8.69秒、29.33秒）に対する改善が見られなかったため、採用していません。ブラウザ版ではシャード間のデータ受け渡しがメインスレッド経由の転送を必要とするため、割り当てを均す効果よりも転送の費用が上回ったものと考えられます。また、件数を複数の剰余で表して複数回計算し、中国式剰余定理（CRT）によって元の値を復元する方法は、メモリ使用量の削減には有効となり得ますが、本ブラウザ版の実装には含めていません。なお、これらの測定値は特定の端末・ブラウザにおける一例であり、絶対値は実行環境によって変動します。</li>
+            <li><strong>メモリ使用量の推定方法と限界：</strong>ブラウザの仕様上、Worker が実際に使用しているメモリ量をページから直接取得することはできないため、結果欄の「メモリ目安」は、最大レイヤ幅（同時に保持する状態数の最大値）に1状態あたりの容量を乗じて推定しています。シングル（Map と BigInt による保持）については、実測したライブヒープ（1状態・1レイヤあたり約70バイト）を基礎に、遷移時に前後の2レイヤが同時に存在することと、ガベージコレクション（GC）の余裕を見込んで、約130〜320バイト／状態としています。マルチ（密な保持）については、型付き配列の実容量（1状態56バイト）を基礎に、前後2レイヤと整列用インデックスが同時に存在する分を見込んで、約90〜190バイト／状態としています。推定に用いる最大レイヤ幅は、14×14までは実測値、15×15以上はサイズあたりの伸び率（約2.75〜2.82倍）に基づく外挿値です。したがって、これらの値は幅を持った推定であり、実際の使用量はブラウザ、端末、GC の実行時期によって前後します。</li>
+            <li><strong>対称性による削減：</strong>始点から最初に進める方向は右または下のいずれかであり、格子の転置対称性により、右に進む経路数と下に進む経路数は等しくなります。本実装では最初の1辺を右方向に固定して数え上げ、最後に結果を2倍します。</li>
+            <li><strong>枝刈り（不要な遷移の除外）：</strong>次の条件に該当する遷移は、完成した経路に至ることがないため除外します。終点に到達した経路をさらに延長しないこと、次数が2を超える辺を加えないこと、始点と終点については次数1を超える辺を加えないこと、部分経路の両端を接続して閉路を形成しないこと、frontier から外れる格子点に端点（次数1）が残る場合はその状態を打ち切ることです。これらは必要条件に基づく除外であり、正しい経路を除外することはありません。</li>
+            <li><strong>実行環境への依存：</strong>マルチモードの効果は、利用可能なコア数とブラウザの実装に依存します。コア数の少ない端末や iPhone では、データ転送と合流の費用のため、シングルモードより処理時間が長くなる場合があります。マルチモードは、コア数の多いデスクトップ環境（特に Windows）での利用を想定しています。</li>
+            <li><strong>表示更新の間引き：</strong>描画と進捗表示が計算の妨げにならないよう、通常モードの経路描画は約90ミリ秒ごと、高速モードの進捗報告は250ミリ秒ごとに更新します。大きな経路数は、桁区切りと桁数を併記して表示します。</li>
           </ul>
           <p>
-            通常モードは素朴な深さ優先探索で経路を1本ずつ数えるため、サイズが大きくなると組み合わせ爆発で
-            事実上終わらなくなります。その差を比べるのがこのプログラムの狙いです。
+            通常モードは、深さ優先探索によって経路を1本ずつ列挙するため、サイズの増大に伴い計算量が急激に増加し、
+            大きなサイズでは現実的な時間内に終了しません。高速モードとの比較を通じて、状態の集約が計算量に与える効果を確認できます。
+            計算結果の正しさは、既知値（OEIS A007764）との照合、および起動時に実行する自己検証によって確認しています。
           </p>
         </section>
       </div>
@@ -370,12 +381,12 @@
       <section class="card download-card" aria-label="GUI版のダウンロード">
         <h2>GUI版（ローカル実行用）</h2>
         <p>
-          このページと<strong>同じ構成</strong>の GUI アプリです。ダウンロードしてローカルで実行できます。
+          このページと<strong>同じ問題</strong>を扱う GUI アプリです。ダウンロードしてローカルで実行できます。
           最初にシングル／マルチを選びます。シングルはスレッド1固定、マルチはスレッド数の「自動」（端末の実際の論理コア数、上限128）が初期値で、手動選択もできます。
-          合流方式はハッシュ（シャーディング）のみ、サイズは 1×1〜20×20 対応で、17×17以上ではメモリ大量使用の警告を表示します。
+          状態の保持と合流はハッシュ表による方式のみを用い、キー順に整列して合流する方式は用いません。マルチ実行時は、状態表を分割した処理単位を、処理の空いたスレッドへ動的に割り当てます。推定メモリ使用量が上限を超える場合は、保持方式はハッシュ表のまま、件数を複数の剰余で表す方式へ自動的に切り替え、中国式剰余定理によって元の件数を復元します。サイズは 1×1〜20×20 対応で、17×17以上ではメモリ大量使用の警告を表示します。
           ブラウザの制限を受けず、CPUコアをそのまま使えるのが利点です。Windows用と Mac用があります。
+         
         </p>
-        <p class="note" style="margin-top:0">Museアプリ内で開いている場合、ダウンロードリンクを押しても保存できないことがあります。その場合は、このページをブラウザで開いてからダウンロードしてください。ダウンロードボタンは新しいタブで開きます。</p>
         <h3>Windows用</h3>
         <ul>
           <li><strong>Windows専用</strong>です。iPhone／iPad／Mac では使えません。</li>
@@ -888,28 +899,121 @@ function brute(n, onProgress) {
     <script>
       "use strict";
       /* ============================================================
-         マルチエンジン（マルチ版アーティファクトの実装を移植）
-         - multiWorkerMain: Worker 本体。パック方式と同一の状態表現・
-           遷移を、キーのハッシュで分割したシャード Map に対して実行
-           する。合流はシャーディング＋Map 合流のみ（ソート方式なし）。
+         マルチエンジン
+         - multiWorkerMainDense: Worker 本体。パック方式と同一の状態
+           表現・遷移を、キーのハッシュで分割したシャードに対して実行
+           する。保持はキー順に整列した密な型付き配列（1状態56バイト）、
+           件数は基数1e9・12肢の肢表現、合流は整列＋線形走査。
            17×17以上ではキーを BigInt に切り替える（wide フラグ）。
          - runMultiCount: メインスレッド側コーディネータ。中継と
            バリア同期だけを行い、状態の合流計算はしない。
          ============================================================ */
-function multiWorkerMain() {
-        var LIMB_BASE = 1000000000, LIMBS = 9, REC = 11; // keyLo, keyHi, 肢×9
+      /* ============================================================
+         Worker 本体（密な保持）: 状態を Map の代わりに、
+         キー順に整列した密な型付き配列（キー lo/hi 各4バイト＋件数
+         基数1e9・12肢=48バイト、1状態あたり56バイト）で保持し、合流は
+         「生成したレコードをキー順に整列し、線形走査で重複を合算する」
+         方式で行う。件数は BigInt ではなく基数1e9の肢で保持する。
+         剰余への分解と中国式剰余定理（CRT）による復元は行わない。
+         肢数は12（上限108桁）で、19×19（88桁）・20×20（97桁）も収まる。
+         ============================================================ */
+function multiWorkerMainDense(cfg) {
+        var DYN = false; // シャードの割り当ては静的であり、動的割り当ては用いない
+        var CHUNK = 4096;
+        var LIMBS = 12, REC = 14; // keyLo, keyHi, 肢×12
         var n = 0, K = 1, selfIdx = 0;
         var wide = false;
         var W = 0, V = 0, S = 0, T = 0, edges = [], E = 0;
         var frontiers = [], posInF = [], lastIdx = [];
-        var POW4 = [], POW2 = [], POW1E9 = [];
-        var dp = new Map();   // 現在レイヤにおける自シャード（solo時は全体）
+        var POW4 = [], POW2 = [];
+        // 現在レイヤにおける自シャード（solo時は全体）。キー順に整列した密な保持:
+        // lo[s], hi[s] が s 番目のキー、cnt[s*LIMBS .. s*LIMBS+11] がその件数（基数1e9の肢）
+        var dp = { lo: new Uint32Array(0), hi: new Uint32Array(0), cnt: new Uint32Array(0), size: 0 };
         var inbox = [];       // 受信済みで未合流のバッファ
         // パック方式のスクラッチ（状態ごとに確保せず使い回す）
         var codes = new Int8Array(32), degs = new Int8Array(32);
         var matePos = new Int16Array(32), mateVid = new Int32Array(32);
         var stack = new Int16Array(32);
         var RESOLVED = new Int8Array(32);
+
+        function emptyDense() {
+          return { lo: new Uint32Array(0), hi: new Uint32Array(0), cnt: new Uint32Array(0), size: 0 };
+        }
+        function keyOf(d, s) {
+          return wide ? BigInt(d.lo[s]) + (BigInt(d.hi[s]) << 32n) : d.lo[s] + d.hi[s] * 4294967296;
+        }
+        /* 整列＋線形合算: (loArr, hiArr) のレコード群をキー順に並べ替え、
+           同一キーの件数を src.cnt（posArr が指す位置の肢）から合算して
+           密な保持を作る。合流処理の本体である。 */
+        function buildDense(loArr, hiArr, src, posArr) {
+          var count = loArr.length;
+          if (count === 0) return emptyDense();
+          var idx = new Array(count);
+          for (var i = 0; i < count; i++) idx[i] = i;
+          idx.sort(function (a, b) {
+            if (hiArr[a] !== hiArr[b]) return hiArr[a] - hiArr[b];
+            return loArr[a] - loArr[b];
+          });
+          var lo = new Uint32Array(count), hi = new Uint32Array(count), cnt = new Uint32Array(count * LIMBS);
+          var wpos = -1;
+          for (var t = 0; t < count; t++) {
+            var r = idx[t], off = posArr[r] * LIMBS;
+            if (wpos >= 0 && lo[wpos] === loArr[r] && hi[wpos] === hiArr[r]) {
+              var carry = 0, base = wpos * LIMBS;
+              for (var j = 0; j < LIMBS; j++) {
+                var s = cnt[base + j] + src.cnt[off + j] + carry;
+                if (s >= 1000000000) { s -= 1000000000; carry = 1; } else carry = 0;
+                cnt[base + j] = s;
+              }
+            } else {
+              wpos++;
+              lo[wpos] = loArr[r]; hi[wpos] = hiArr[r];
+              var base2 = wpos * LIMBS;
+              for (var j2 = 0; j2 < LIMBS; j2++) cnt[base2 + j2] = src.cnt[off + j2];
+            }
+          }
+          var sz = wpos + 1;
+          return { lo: lo.slice(0, sz), hi: hi.slice(0, sz), cnt: cnt.slice(0, sz * LIMBS), size: sz };
+        }
+        /* 生成レコードの収集器。件数は srcDense の肢を参照で持ち、build で合算する */
+        function makeCollector(srcDense) {
+          return {
+            src: srcDense, lo: [], hi: [], pos: [], count: 0,
+            push: function (key, srcPos) {
+              if (wide) { this.lo.push(Number(key & 4294967295n)); this.hi.push(Number((key >> 32n) & 4294967295n)); }
+              else { this.lo.push(key % 4294967296); this.hi.push(Math.floor(key / 4294967296)); }
+              this.pos.push(srcPos); this.count++;
+            },
+            build: function () { return buildDense(this.lo, this.hi, this.src, this.pos); }
+          };
+        }
+        // 密な保持を転送用のレコード列に詰める
+        function packDense(d) {
+          var buf = new Uint32Array(d.size * REC), o = 0;
+          for (var s = 0; s < d.size; s++) {
+            buf[o] = d.lo[s]; buf[o + 1] = d.hi[s];
+            for (var j = 0; j < LIMBS; j++) buf[o + 2 + j] = d.cnt[s * LIMBS + j];
+            o += REC;
+          }
+          return buf;
+        }
+        // inbox の全バッファを連結し、整列＋線形合算で密な保持に戻す
+        function mergeInbox() {
+          var R = 0, bi;
+          for (bi = 0; bi < inbox.length; bi++) R += inbox[bi].length / REC;
+          if (R === 0) return emptyDense();
+          var loArr = new Array(R), hiArr = new Array(R), pos = new Array(R);
+          var flat = new Uint32Array(R * LIMBS), rp = 0;
+          for (bi = 0; bi < inbox.length; bi++) {
+            var buf = inbox[bi];
+            for (var o = 0; o < buf.length; o += REC) {
+              loArr[rp] = buf[o]; hiArr[rp] = buf[o + 1];
+              for (var j = 0; j < LIMBS; j++) flat[rp * LIMBS + j] = buf[o + 2 + j];
+              pos[rp] = rp; rp++;
+            }
+          }
+          return buildDense(loArr, hiArr, { cnt: flat }, pos);
+        }
 
         function setup(nn) {
           n = nn;
@@ -943,11 +1047,9 @@ function multiWorkerMain() {
           }
           POW4 = []; POW2 = [];
           for (var k2 = 0; k2 <= 32; k2++) { POW4.push(Math.pow(4, k2)); POW2.push(Math.pow(2, k2)); }
-          POW1E9 = [1n];
-          for (var k3 = 1; k3 <= LIMBS; k3++) POW1E9.push(POW1E9[k3 - 1] * 1000000000n);
         }
 
-        // キーのハッシュで宛先シャードを決める（全 Worker で同一の純関数）
+        // キーのハッシュで宛先シャードを決める（全 Worker で共通の純関数）
         function shardOf(key) {
           var lo, hi;
           if (wide) { lo = Number(key & 4294967295n); hi = Number((key >> 32n) & 4294967295n); }
@@ -958,9 +1060,10 @@ function multiWorkerMain() {
           return h % K;
         }
 
-        /* 辺 i の遷移。シングル版 simpathPack のレイヤ本体と同一の規則で、
-           次状態を emit(nkey, cnt) へ渡す。 */
-        function processEdge(i, srcMap, emit) {
+        /* 辺 i の遷移。パック方式と同一の遷移規則で、
+           密な保持 srcDense を走査し、次状態を emit(nkey, srcPos) へ渡す
+           （件数は srcPos の肢を収集器が参照するため、ここでは受け渡さない）。 */
+        function processEdgeDense(i, srcDense, emit, rangeStart, rangeEnd) {
           var u = edges[i][0], w = edges[i][1];
           var Fi = frontiers[i], Fi1 = frontiers[i + 1], posi = posInF[i], posi1 = posInF[i + 1];
           var L = Fi.length, L1 = Fi1.length;
@@ -970,7 +1073,8 @@ function multiWorkerMain() {
           var isSRight = (u === S && w === S + 1), isSDown = (u === S && w === S + W);
           var uLast = lastIdx[u] === i, wLast = lastIdx[w] === i;
           var pT = posi[T];
-          srcMap.forEach(function (cnt, key) {
+          for (var si = (rangeStart || 0); si < (rangeEnd == null ? srcDense.size : rangeEnd); si++) {
+            var key = keyOf(srcDense, si);
             var plugPart, degPart;
             if (wide) { plugPart = Number(key % pow4LB); degPart = Number(key / pow4LB); }
             else { plugPart = key % pow4L; degPart = Math.floor(key / pow4L); }
@@ -1085,53 +1189,80 @@ function multiWorkerMain() {
                 }
               }
               if (bad) continue;
-              emit(wide ? BigInt(newPlug) + BigInt(newDeg) * pow4L1B : newPlug + newDeg * pow4L1, cnt);
+              emit(wide ? BigInt(newPlug) + BigInt(newDeg) * pow4L1B : newPlug + newDeg * pow4L1, si);
             }
-          });
-        }
-
-        // Map<key, BigInt> をレコード列（キー2ワード＋肢9本）に詰める
-        function packMap(map) {
-          var buf = new Uint32Array(map.size * REC), o = 0;
-          map.forEach(function (cnt, key) {
-            if (wide) { buf[o] = Number(key & 4294967295n); buf[o + 1] = Number((key >> 32n) & 4294967295n); }
-            else { buf[o] = key % 4294967296; buf[o + 1] = Math.floor(key / 4294967296); }
-            var v = cnt;
-            for (var j = 0; j < LIMBS; j++) { buf[o + 2 + j] = Number(v % 1000000000n); v = v / 1000000000n; }
-            o += REC;
-          });
-          return buf;
-        }
-        function mergeBufferInto(map, buf) {
-          for (var o = 0; o < buf.length; o += REC) {
-            var key = wide ? BigInt(buf[o]) + (BigInt(buf[o + 1]) << 32n) : buf[o] + buf[o + 1] * 4294967296;
-            var v = 0n;
-            for (var j = LIMBS - 1; j >= 0; j--) v = v * 1000000000n + BigInt(buf[o + 2 + j]);
-            var ex = map.get(key);
-            map.set(key, ex === undefined ? v : ex + v);
           }
         }
-        // srcMap をシャードごとに仕分けて送る。自シャード分は自分の inbox へ。
+
+        // 密な保持をシャードごとに仕分けて送る。自シャード分は自分の inbox へ。
         // 戻り値: 転送したレコード総数
-        function sendSharded(srcMap, layer) {
-          var buckets = new Array(K);
-          srcMap.forEach(function (cnt, key) {
-            var d = shardOf(key), b = buckets[d];
-            if (!b) { b = new Map(); buckets[d] = b; }
-            var ex = b.get(key);
-            b.set(key, ex === undefined ? cnt : ex + cnt);
-          });
+        function sendShardedDense(srcDense, layer) {
+          var cols = new Array(K);
+          for (var s = 0; s < srcDense.size; s++) {
+            var key = keyOf(srcDense, s), d = shardOf(key);
+            var col = cols[d];
+            if (!col) { col = makeCollector(srcDense); cols[d] = col; }
+            col.push(key, s);
+          }
           var parts = [], transfers = [], records = 0;
           for (var k = 0; k < K; k++) {
-            var b2 = buckets[k];
-            if (!b2 || b2.size === 0) continue;
-            var buf = packMap(b2);
-            records += b2.size;
+            var col2 = cols[k];
+            if (!col2 || col2.count === 0) continue;
+            var bd = col2.build();
+            var buf = packDense(bd);
+            records += bd.size;
             if (k === selfIdx) inbox.push(buf);
             else { parts.push({ to: k, data: buf }); transfers.push(buf.buffer); }
           }
           if (parts.length) self.postMessage({ type: "parts", layer: layer, parts: parts }, transfers);
           return records;
+        }
+
+        /* srcDense の [rs, re) 区間について辺 layer の遷移を行い、生成
+           レコードを宛先シャードごとに仕分けて送る（静的 "layer" と動的
+           チャンク処理で共用）。自シャード分は自分の inbox へ。 */
+        function processAndSendDense(srcDense, layer, rs, re) {
+          var t1 = Date.now(), gen = 0;
+          var cols = new Array(K);
+          processEdgeDense(layer, srcDense, function (nkey, srcPos) {
+            gen++;
+            var d = shardOf(nkey), col = cols[d];
+            if (!col) { col = makeCollector(srcDense); cols[d] = col; }
+            col.push(nkey, srcPos);
+          }, rs, re);
+          var t2 = Date.now();
+          var parts = [], transfers = [], records = 0;
+          for (var k = 0; k < K; k++) {
+            var col2 = cols[k];
+            if (!col2 || col2.count === 0) continue;
+            var bd = col2.build();
+            var buf = packDense(bd);
+            records += bd.size;
+            if (k === selfIdx) inbox.push(buf);
+            else { parts.push({ to: k, data: buf }); transfers.push(buf.buffer); }
+          }
+          if (parts.length) self.postMessage({ type: "parts", layer: layer, parts: parts }, transfers);
+          return { generated: gen, records: records, computeMs: t2 - t1, packMs: Date.now() - t2 };
+        }
+        // 転送レコード列を密な保持に戻す（所有者の整列済みスライスなので順序はそのまま使える）
+        function denseFromBuffer(buf) {
+          var R = buf.length / REC;
+          var d = { lo: new Uint32Array(R), hi: new Uint32Array(R), cnt: new Uint32Array(R * LIMBS), size: R };
+          for (var s = 0, o = 0; s < R; s++, o += REC) {
+            d.lo[s] = buf[o]; d.hi[s] = buf[o + 1];
+            for (var j = 0; j < LIMBS; j++) d.cnt[s * LIMBS + j] = buf[o + 2 + j];
+          }
+          return d;
+        }
+        // 密な保持の [rs, re) 区間を転送レコード列に詰める（チャンク引き渡し用）
+        function packDenseRange(srcDense, rs, re) {
+          var buf = new Uint32Array((re - rs) * REC), o = 0;
+          for (var s = rs; s < re; s++) {
+            buf[o] = srcDense.lo[s]; buf[o + 1] = srcDense.hi[s];
+            for (var j = 0; j < LIMBS; j++) buf[o + 2 + j] = srcDense.cnt[s * LIMBS + j];
+            o += REC;
+          }
+          return buf;
         }
 
         self.onmessage = function (ev) {
@@ -1140,58 +1271,57 @@ function multiWorkerMain() {
             if (m.type === "init") {
               K = m.workers; selfIdx = m.index;
               setup(m.n);
-              dp = new Map(); inbox = [];
-              if (selfIdx === 0) dp.set(wide ? 0n : 0, 1n);
+              dp = emptyDense(); inbox = [];
+              if (selfIdx === 0) {
+                var c0 = new Uint32Array(LIMBS); c0[0] = 1;
+                dp = { lo: new Uint32Array([0]), hi: new Uint32Array([0]), cnt: c0, size: 1 };
+              }
               self.postMessage({ type: "ready" });
             } else if (m.type === "solo") {
               // 状態数が少ない序盤: Worker 0 が全体を単独処理する
               var t0 = Date.now(), gen = 0;
-              var ndp = new Map();
-              processEdge(m.layer, dp, function (nkey, cnt) {
-                gen++;
-                var ex = ndp.get(nkey);
-                ndp.set(nkey, ex === undefined ? cnt : ex + cnt);
-              });
-              dp = ndp;
+              var col = makeCollector(dp);
+              processEdgeDense(m.layer, dp, function (nkey, srcPos) { gen++; col.push(nkey, srcPos); });
+              dp = col.build();
               self.postMessage({ type: "soloDone", layer: m.layer, states: dp.size, generated: gen, computeMs: Date.now() - t0 });
             } else if (m.type === "distribute") {
-              var rec = sendSharded(dp, m.layer);
-              dp = new Map();
+              var rec = sendShardedDense(dp, m.layer);
+              dp = emptyDense();
               self.postMessage({ type: "distDone", layer: m.layer, records: rec });
             } else if (m.type === "layer") {
-              var t1 = Date.now(), gen2 = 0;
-              var buckets = new Array(K);
-              processEdge(m.layer, dp, function (nkey, cnt) {
-                gen2++;
-                var d = shardOf(nkey), b = buckets[d];
-                if (!b) { b = new Map(); buckets[d] = b; }
-                var ex = b.get(nkey);
-                b.set(nkey, ex === undefined ? cnt : ex + cnt);
-              });
-              var t2 = Date.now();
-              var parts = [], transfers = [], records = 0;
-              for (var k = 0; k < K; k++) {
-                var bk = buckets[k];
-                if (!bk || bk.size === 0) continue;
-                var buf = packMap(bk);
-                records += bk.size;
-                if (k === selfIdx) inbox.push(buf);
-                else { parts.push({ to: k, data: buf }); transfers.push(buf.buffer); }
-              }
-              if (parts.length) self.postMessage({ type: "parts", layer: m.layer, parts: parts }, transfers);
-              self.postMessage({ type: "done", layer: m.layer, generated: gen2, records: records, computeMs: t2 - t1, packMs: Date.now() - t2 });
+              var stL = processAndSendDense(dp, m.layer, 0, dp.size);
+              self.postMessage({ type: "done", layer: m.layer, generated: stL.generated, records: stL.records, computeMs: stL.computeMs, packMs: stL.packMs });
+            } else if (DYN && m.type === "dynLayerStart") {
+              // 動的割り当て: チャンク数（dp は整列済み配列なので区間がそのままチャンクになる）
+              self.postMessage({ type: "dynReady", layer: m.layer, chunks: Math.ceil(dp.size / CHUNK), size: dp.size });
+            } else if (DYN && m.type === "dynProcessOwn") {
+              var dynA = m.chunk * CHUNK, dynB = Math.min(dp.size, dynA + CHUNK);
+              var stO = processAndSendDense(dp, m.layer, dynA, dynB);
+              self.postMessage({ type: "dynChunkDone", layer: m.layer, generated: stO.generated, records: stO.records, computeMs: stO.computeMs, packMs: stO.packMs });
+            } else if (DYN && m.type === "dynSendChunk") {
+              // 自分のシャードの未処理チャンクを、引き受けた Worker へ送る
+              var dynA2 = m.chunk * CHUNK, dynB2 = Math.min(dp.size, dynA2 + CHUNK);
+              var bufC = packDenseRange(dp, dynA2, dynB2);
+              self.postMessage({ type: "dynChunkData", layer: m.layer, chunk: m.chunk, to: m.to, data: bufC }, [bufC.buffer]);
+            } else if (DYN && m.type === "dynProcessData") {
+              // 他人のシャードから受け取ったチャンクを処理する
+              var tmpD = denseFromBuffer(m.data);
+              var stD = processAndSendDense(tmpD, m.layer, 0, tmpD.size);
+              self.postMessage({ type: "dynChunkDone", layer: m.layer, generated: stD.generated, records: stD.records, computeMs: stD.computeMs, packMs: stD.packMs });
             } else if (m.type === "inbox") {
               inbox.push(m.data);
             } else if (m.type === "merge") {
               var t3 = Date.now();
-              var nm = new Map();
-              for (var bi = 0; bi < inbox.length; bi++) mergeBufferInto(nm, inbox[bi]);
+              dp = mergeInbox();
               inbox = [];
-              dp = nm;
               self.postMessage({ type: "merged", layer: m.layer, states: dp.size, mergeMs: Date.now() - t3 });
             } else if (m.type === "finish") {
               var sum = 0n;
-              dp.forEach(function (c) { sum += c; });
+              for (var s2 = 0; s2 < dp.size; s2++) {
+                var v = 0n;
+                for (var j = LIMBS - 1; j >= 0; j--) v = v * 1000000000n + BigInt(dp.cnt[s2 * LIMBS + j]);
+                sum += v;
+              }
               self.postMessage({ type: "result", sum: sum.toString() });
             }
           } catch (err) {
@@ -1199,9 +1329,13 @@ function multiWorkerMain() {
           }
         };
       }
-
       /* コーディネータ: Worker 群を生成し、中継とバリア同期だけを行う。
-         opts: { n, workers, soloThreshold, spawnWorker, onProgress }
+         opts: { n, workers, soloThreshold, spawnWorker, onProgress, dynamic }
+         dynamic が true の場合、分散後のレイヤ処理は静的な一括
+         割り当てではなく動的割り当てになる: 各 Worker のシャードを
+         チャンク（Worker 側で 4,096 状態ごと）に分け、コーディネータが
+         チャンクのプールを管理して、手の空いた Worker に次のチャンクを
+         割り当て続ける。他人のチャンクは所有者から受け取って処理する。
          戻り値: { promise, stop } */
       function runMultiCount(opts) {
         var n = opts.n, K = Math.max(1, Math.min(128, opts.workers | 0));
@@ -1219,6 +1353,10 @@ function multiWorkerMain() {
         var resultCount = 0, resultSum = 0n;
         var resolveFn = null, rejectFn = null;
         var promise = new Promise(function (res, rej) { resolveFn = res; rejectFn = rej; });
+        // 動的割り当て用の状態変数
+        var DYNAMIC = !!opts.dynamic;
+        var dynActive = false, dynReadyCount = 0, dynTotalChunks = 0, dynDoneChunks = 0;
+        var dynPool = [], dynBusy = [];
 
         function terminateAll() {
           for (var i = 0; i < workers.length; i++) { try { workers[i].terminate(); } catch (e) {} }
@@ -1246,7 +1384,71 @@ function multiWorkerMain() {
           if (settled || stoppedFlag) return;
           if (layer >= E) { startFinish(); return; }
           if (!distributed) workers[0].postMessage({ type: "solo", layer: layer });
+          else if (DYNAMIC) startDynLayer();
           else { doneCount = 0; sendAll({ type: "layer", layer: layer }); }
+        }
+        /* ---- 動的割り当て ---- */
+        function beginMerge() {
+          awaitingDistMerge = false;
+          mergedCount = 0; mergedStates = 0;
+          sendAll({ type: "merge", layer: layer });
+        }
+        function startDynLayer() {
+          dynActive = true; dynReadyCount = 0; dynTotalChunks = 0; dynDoneChunks = 0;
+          dynPool = []; dynBusy = [];
+          for (var i = 0; i < K; i++) dynBusy.push(false);
+          sendAll({ type: "dynLayerStart", layer: layer });
+        }
+        function assignDyn() {
+          if (!dynActive) return;
+          var w, i, pick;
+          // 第1パス: 空いている Worker には、まず自分のシャードのチャンクを割り当てる
+          for (w = 0; w < K; w++) {
+            if (dynBusy[w]) continue;
+            pick = -1;
+            for (i = 0; i < dynPool.length; i++) if (dynPool[i].owner === w) { pick = i; break; }
+            if (pick >= 0) {
+              var c1 = dynPool.splice(pick, 1)[0];
+              dynBusy[w] = true;
+              workers[w].postMessage({ type: "dynProcessOwn", layer: layer, chunk: c1.chunk });
+            }
+          }
+          // 第2パス: それでも空いている Worker には、残りチャンクが最も多い
+          // 所有者のチャンクを割り当てる（所有者がデータを送り、受け手が処理する）
+          for (w = 0; w < K; w++) {
+            if (dynBusy[w] || dynPool.length === 0) continue;
+            var counts = {}, bestOwner = -1, bestCount = 0;
+            for (i = 0; i < dynPool.length; i++) {
+              var ow = dynPool[i].owner;
+              counts[ow] = (counts[ow] || 0) + 1;
+              if (counts[ow] > bestCount) { bestCount = counts[ow]; bestOwner = ow; }
+            }
+            pick = -1;
+            for (i = 0; i < dynPool.length; i++) if (dynPool[i].owner === bestOwner) { pick = i; break; }
+            if (pick < 0) continue;
+            var c2 = dynPool.splice(pick, 1)[0];
+            dynBusy[w] = true;
+            workers[c2.owner].postMessage({ type: "dynSendChunk", layer: layer, chunk: c2.chunk, to: w });
+          }
+        }
+        function onDynReady(idx, m) {
+          for (var c = 0; c < m.chunks; c++) dynPool.push({ owner: idx, chunk: c });
+          dynTotalChunks += m.chunks;
+          dynReadyCount++;
+          if (dynReadyCount !== K) return;
+          if (dynTotalChunks === 0) { dynActive = false; beginMerge(); return; }
+          assignDyn();
+        }
+        function onDynChunkData(m) {
+          workers[m.to].postMessage({ type: "dynProcessData", layer: m.layer, chunk: m.chunk, data: m.data }, [m.data.buffer]);
+        }
+        function onDynChunkDone(idx, m) {
+          generatedTotal += m.generated; recordsTotal += m.records;
+          computeMs += m.computeMs; packMs += m.packMs;
+          dynBusy[idx] = false;
+          dynDoneChunks++;
+          if (dynDoneChunks >= dynTotalChunks) { dynActive = false; beginMerge(); return; }
+          assignDyn();
         }
         function onSoloDone(m) {
           totalStates += m.states;
@@ -1320,6 +1522,9 @@ function multiWorkerMain() {
           }
           else if (m.type === "soloDone") onSoloDone(m);
           else if (m.type === "distDone") onDistDone(m);
+          else if (m.type === "dynReady") onDynReady(idx, m);
+          else if (m.type === "dynChunkData") onDynChunkData(m);
+          else if (m.type === "dynChunkDone") onDynChunkDone(idx, m);
           else if (m.type === "done") onDone(m);
           else if (m.type === "merged") onMerged(m);
           else if (m.type === "result") onResult(m);
@@ -1369,6 +1574,7 @@ var MAX_N = 20;
 var $ = function (id) { return document.getElementById(id);};
 var board = $("board"), ctx = board.getContext("2d");
 var sizeGrid = $("sizeGrid"), teachCheck = $("teachCheck");
+var multiBanner = $("multiBanner");
 var modeSingle = $("modeSingle"), modeMulti = $("modeMulti");
 var singleOpts = $("singleOpts"), multiOpts = $("multiOpts"), singleBanner = $("singleBanner");
 var optsStack = $("optsStack");
@@ -1378,6 +1584,7 @@ var statusText = $("statusText"), modeBadge = $("modeBadge"), stageNote = $("sta
 var progressBar = $("progressBar");
 var resCount = $("resCount"), resDigits = $("resDigits"), resSize = $("resSize"),
 resMode = $("resMode"), resTime = $("resTime"), resWork = $("resWork"),
+resMem = $("resMem"),
 resVerify = $("resVerify"), resNote = $("resNote"),
 ratioRow = $("ratioRow"), resRatio = $("resRatio");
 
@@ -1385,9 +1592,11 @@ var size = 5; // 現在の n
 var execMode = "single"; // "single" | "multi"
 var running = false;
 var worker = null, workerUrl = null; // シングル用 Worker
-var multiWorkerUrl = null; // マルチ用 Worker
+var multiWorkerUrlDense = null; // マルチ用 Worker（密な保持）
+var multiEngine = "dense"; // マルチの保持方式（密な保持＋肢表現）
 var runHandle = null; // マルチ実行ハンドル
 var runMode = null, runSize = 0, runWorkers = 0, runStart = 0, timerId = null;
+var runEngine = "std"; // 実行中のマルチ計算方式
 var lastProgress = null; // 停止時に表示する途中経過
 var results = { brute: {}, fastpack: {}, multi: {}}; // multi は "n@K" キー
 var viewPath = null; // 描画する経路（探索中 or 例）
@@ -1428,19 +1637,61 @@ if (x >= 100) return String(Math.round(x));
 if (x >= 10) return x.toFixed(1);
 return x.toFixed(2);
 }
+/* ---------- メモリ目安 ---------- */
+/* ブラウザからは Worker の実メモリを直接測れないため、ローカル版と同じ考え方で
+   「最大レイヤ幅（同時に保持する状態数）× 1状態あたりの容量」から推定する。
+   MAX_STATES はパック方式の最大レイヤ幅の実測値（1×1〜14×14）。
+   15×15以上は伸び率（約2.75〜2.82倍／サイズ）からの外挿。
+   係数は実測したライブヒープ（Map＋BigInt 方式で1状態・1レイヤあたり約70バイト）を
+   もとに、遷移時に前後の2レイヤが同時に存在することと GC の余裕を見込んだ幅。 */
+var MAX_STATES = {
+1: 1, 2: 7, 3: 20, 4: 54, 5: 136, 6: 348, 7: 904, 8: 2377, 9: 6316, 10: 16933,
+11: 45750, 12: 124447, 13: 340536, 14: 936771, 15: 2590172, 16: 7200278,
+17: 20088776, 18: 56248573, 19: 158058490, 20: 445724942
+};
+var MEM_COEF = { // [下限, 上限] バイト／状態（ピーク基準）
+map: [130, 320],   // シングル・パック方式／マルチ（Map＋BigInt）
+dense: [90, 190]   // マルチ（型付き配列で保持：実容量56バイト／状態＋2層・整列の余裕）
+};
+function fmtBytes(b) {
+if (b < 1048576) return Math.max(1, Math.round(b / 1024)) + " KB";
+if (b < 1073741824) return (b / 1048576).toFixed(b < 10485760? 1: 0) + " MB";
+return (b / 1073741824).toFixed(b < 10737418240? 2: 1) + " GB";
+}
+function isDenseEngine(eng) { return eng === "dense";}
+function isDynEngine(eng) { return false; } // 動的割り当ては用いない
+function memKindFor() {
+return (execMode === "multi" && isDenseEngine(multiEngine))? "dense": "map";
+}
+function memRangeText(states, kind) {
+var c = MEM_COEF[kind] || MEM_COEF.map;
+return "約 " + fmtBytes(states * c[0]) + "〜" + fmtBytes(states * c[1]);
+}
+/* 実行前見積もり（選択中のサイズ・方式に対するピーク目安） */
+function memPredictText() {
+if (execMode!== "multi" &&!teachCheck.checked) return "対象外（全探索は状態表を持たず、メモリはごく小さい）";
+var kind = memKindFor();
+var basis = size <= 14? "実測": "外挿";
+return "実行前見積もり：ピーク " + memRangeText(MAX_STATES[size], kind) +
+"（最大レイヤ幅 " + fmtNum(String(MAX_STATES[size])) + "・" + basis + " から推定）";
+}
 function hwCores() { return Math.max(1, Math.min(128, navigator.hardwareConcurrency || 4));}
 function resolvedWorkers() {
 if (coreSel.value === "auto") return hwCores();
 return parseInt(coreSel.value, 10) || 1;
 }
 function isFastDisplay() { return execMode === "multi" || teachCheck.checked;}
+function multiKey(n, k, eng) { return n + "@" + k + (eng === "std"? "": "#" + eng); }
+function engineBaseName(eng) {
+return "マルチ（密な保持・パック方式";
+}
 function modeName() {
-if (execMode === "multi") return "マルチ（パック方式・Worker " + resolvedWorkers() + " 並列）";
+if (execMode === "multi") return engineBaseName(multiEngine) + "・Worker " + resolvedWorkers() + " 並列）";
 if (!teachCheck.checked) return "通常モード（全探索）";
 return "高速モード（Simpath・パック方式）・シングル";
 }
 function currentResult() {
-if (execMode === "multi") return results.multi[size + "@" + resolvedWorkers()];
+if (execMode === "multi") return results.multi[multiKey(size, resolvedWorkers(), multiEngine)];
 return results[teachCheck.checked? "fastpack": "brute"][size];
 }
 function syncModeUI() {
@@ -1451,6 +1702,7 @@ modeMulti.disabled = running;
 singleOpts.hidden = execMode!== "single";
 multiOpts.hidden = execMode!== "multi";
 singleBanner.hidden =!(execMode === "single" && teachCheck.checked);
+multiBanner.textContent = "マルチ（レイヤ並列＋静的シャーディング、保持は密な整列配列）で実行します";
 coreNote.textContent = coreSel.value === "auto"
 ? "自動：" + hwCores() + "コア使用（このデバイスの論理コア数 " + (navigator.hardwareConcurrency || "不明") + "、上限128に合わせました）"
 : "手動：Worker " + resolvedWorkers() + " を使用します";
@@ -1663,14 +1915,14 @@ updateWarn(); showStored(); draw();
 function updateWarn() {
 var msg = "";
 if (size >= 19) {
-msg = "" + size + "×" + size + " は状態数が 16×16 からさらに桁違いに増え、" +
-"数十GB級のメモリが必要になる可能性が高く、通常のPCでも完走は困難です。" +
-"スマートフォンではほぼ確実にメモリ不足で落ちます。終わる保証はありません（時間もメモリも未知数です）。" +
+msg = "" + size + "×" + size + " は状態数が 16×16 よりさらに大幅に増加し、" +
+"数十GB級のメモリが必要になる可能性が高く、通常のPCでも最後まで計算を終えることは困難です。" +
+"スマートフォンではほぼ確実にメモリ不足のため処理が終了します。終了までに必要な時間とメモリ量は、事前には確定できません。" +
 "開始はできますが、止めるときは「停止」ボタンを押してください（停止時点の数字は未確定です）。";
 } else if (size >= 17) {
-msg = "" + size + "×" + size + " は状態数が 16×16 からさらに桁違いに増え、" +
+msg = "" + size + "×" + size + " は状態数が 16×16 よりさらに大幅に増加し、" +
 "メモリ使用量は数GB〜数十GB規模に達しうる場合があります。" +
-"スマートフォンではほぼ確実にメモリ不足で落ちます。終わる保証はありません（時間もメモリも未知数です）。" +
+"スマートフォンではほぼ確実にメモリ不足のため処理が終了します。終了までに必要な時間とメモリ量は、事前には確定できません。" +
 "開始はできますが、止めるときは「停止」ボタンを押してください（停止時点の数字は未確定です）。";
 } else if (execMode === "multi") {
 if (size >= 13) {
@@ -1681,11 +1933,11 @@ msg = "状態数は指数的に増えるため、" + size + "×" + size + " は�
 msg = size + "×" + size + " は環境により数十秒〜数分かかる場合があります。計算は Worker で行うため、待っている間も画面は操作できます。";
 }
 } else if (!teachCheck.checked && size >= 11) {
-msg = "通常モード（全探索）では " + size + "×" + size + " は組み合わせ爆発で事実上終わりません。" +
+msg = "通常モード（全探索）では " + size + "×" + size + " は組み合わせの爆発的増加により、現実的な時間内には終了しません。" +
 "開始はできますが、結果が出る見込みはほぼありません。止めるときは必ず「停止」ボタンを押してください" +
-"（停止時点の数字は未確定です）。大きなサイズには「おねえさんに教えてあげる」をおすすめします。";
+"（停止時点の数字は未確定です）。大きなサイズでは「おねえさんに教えてあげる」の利用を推奨します。";
 } else if (!teachCheck.checked && size >= 6) {
-msg = "通常モードでは " + size + "×" + size + " は組み合わせ爆発で事実上終わりません" +
+msg = "通常モードでは " + size + "×" + size + " は組み合わせの爆発的増加により、現実的な時間内には終了しません" +
 "（原作ではおねえさんが 10×10 にスーパーコンピュータで25万年かけています）。停止ボタンでいつでも止められます。";
 } else if (teachCheck.checked && size >= 13) {
 msg = "パック方式で計算します。" +
@@ -1714,6 +1966,7 @@ resCount.textContent = fmtJP(rec.count);
 resDigits.textContent = fmtNum(rec.count) + "（" + rec.count.length + " 桁）";
 resTime.textContent = fmtMs(rec.ms);
 resWork.textContent = rec.work;
+resMem.textContent = rec.mem || memPredictText();
 var ok = rec.count === KNOWN[size];
 resVerify.textContent = ok? "既知値と一致 ✓": "既知値と不一致 ✗";
 resVerify.className = ok? "ok": "";
@@ -1724,6 +1977,7 @@ resCount.textContent = "—";
 resDigits.textContent = "";
 resTime.textContent = "—";
 resWork.textContent = "—";
+resMem.textContent = memPredictText();
 resVerify.textContent = "—";
 resVerify.className = "";
 resNote.textContent = "";
@@ -1735,8 +1989,11 @@ function updateRatio() {
 var b = results.brute[size];
 var entries = [];
 if (results.fastpack[size]) entries.push({ label: "シングル・パック方式", rec: results.fastpack[size]});
-var mk = size + "@" + resolvedWorkers();
-if (results.multi[mk]) entries.push({ label: "マルチ・Worker " + resolvedWorkers(), rec: results.multi[mk]});
+var engPairs = [["dense", "マルチ"]];
+engPairs.forEach(function (pair) {
+var rec2 = results.multi[multiKey(size, resolvedWorkers(), pair[0])];
+if (rec2) entries.push({ label: pair[1] + "・Worker " + resolvedWorkers(), rec: rec2});
+});
 if (b && entries.length && b.ms > 0) {
 ratioRow.hidden = false;
 var parts = entries.map(function (e) {
@@ -1769,14 +2026,18 @@ workerUrl = URL.createObjectURL(new Blob([src], { type: "text/javascript"}));
 }
 return workerUrl;
 }
-function getMultiWorkerUrl() {
-if (!multiWorkerUrl) {
-var src = "\"use strict\";\n(" + multiWorkerMain.toString() + ")();";
-multiWorkerUrl = URL.createObjectURL(new Blob([src], { type: "text/javascript"}));
+function workerBlobUrl(fn, cfg) {
+var src = "\"use strict\";\n(" + fn.toString() + ")(" + JSON.stringify(cfg || {}) + ");";
+return URL.createObjectURL(new Blob([src], { type: "text/javascript"}));
 }
-return multiWorkerUrl;
+function getMultiWorkerUrlDense() {
+if (!multiWorkerUrlDense) multiWorkerUrlDense = workerBlobUrl(multiWorkerMainDense, {});
+return multiWorkerUrlDense;
 }
-function spawnMultiWorker() { return new Worker(getMultiWorkerUrl());}
+function spawnMultiWorkerDense() { return new Worker(getMultiWorkerUrlDense());}
+function spawnForEngine(eng) {
+return spawnMultiWorkerDense;
+}
 
 /* ---------- 実行管理（共通） ---------- */
 function setRunningUI(on) {
@@ -1810,6 +2071,7 @@ resDigits.textContent = "";
 resSize.textContent = size + "×" + size;
 resMode.textContent = modeName();
 resTime.textContent = "0 ms";
+resMem.textContent = fastLike? memPredictText(): "対象外（全探索は状態表を持たず、メモリはごく小さい）";
 resVerify.textContent = "—"; resVerify.className = "";
 timerId = setInterval(function () {
 resTime.textContent = fmtMs(Date.now() - runStart);
@@ -1867,6 +2129,8 @@ progressBar.style.width = pct + "%";
 resWork.textContent = "辺 " + m.idx + " / " + m.E + "（" + pct.toFixed(1) + "%）を処理／経過時間 " +
 fmtMs(m.elapsed!= null? m.elapsed: (Date.now() - runStart)) + "／状態数 現在 " +
 fmtNum(String(m.states)) + "・最大 " + fmtNum(String(m.maxStates)) + "・累計 " + fmtNum(String(m.totalStates));
+resMem.textContent = "現在 " + memRangeText(m.states, "map") + "／ピーク目安 " +
+memRangeText(m.maxStates, "map") + "（最大レイヤ幅 " + fmtNum(String(m.maxStates)) + " から推定）";
 }
 draw();
 return;
@@ -1876,7 +2140,10 @@ var key = m.mode;
 var work = m.mode === "fastpack"
 ? "パック方式・シングル／共有した状態の総数 " + fmtNum(String(m.totalStates)) + "（ZDDノード相当）／最大レイヤ幅 " + fmtNum(String(m.maxStates))
 : "探索ステップ " + fmtNum(String(m.steps));
-results[key][m.n] = { count: m.count, ms: m.elapsed, work: work};
+var mem = m.mode === "fastpack"
+? "ピーク目安 " + memRangeText(m.maxStates, "map") + "（最大レイヤ幅 " + fmtNum(String(m.maxStates)) + " から推定）"
+: "対象外（全探索は状態表を持たず、メモリはごく小さい）";
+results[key][m.n] = { count: m.count, ms: m.elapsed, work: work, mem: mem};
 var doneSize = m.n;
 finishRun();
 statusText.textContent = "完了";
@@ -1898,22 +2165,24 @@ resNote.textContent = "計算中にエラーが発生しました：" + m.messag
 }
 
 /* ---------- マルチ実行 ---------- */
-function multiWorkText(r) {
-return "マルチ／共有した状態の総数 " + fmtNum(String(r.totalStates)) + "／最大レイヤ幅 " + fmtNum(String(r.maxStates)) +
+function multiWorkText(r, eng) {
+return engineBaseName(eng) + "）" + "／共有した状態の総数 " + fmtNum(String(r.totalStates)) + "／最大レイヤ幅 " + fmtNum(String(r.maxStates)) +
 "／生成した遷移 " + fmtNum(String(r.generated)) + "／転送レコード " + fmtNum(String(r.records));
 }
 function startMultiRun() {
 var K = resolvedWorkers();
-runMode = "multi"; runWorkers = K;
+runMode = "multi"; runWorkers = K; runEngine = multiEngine;
 beginRunUI(true);
 viewPath = null;
-statusText.textContent = "計算中…（Worker " + K + " 並列）";
+statusText.textContent = "計算中…（" + modeName() + "）";
 resWork.textContent = "辺 0 / " + (2 * size * (size + 1)) + " を処理";
-resNote.textContent = "frontier（橙色の点）を右・下へ進めながら、状態表をシャードに分けて Worker 間で受け渡しています。";
+resNote.textContent = "状態表はキー順に整列した密な配列（件数は基数1e9・12肢）で保持しています。frontier（橙色の点）を右・下へ進めながら、状態表をシャードに分けて Worker 間で受け渡しています。";
 progressBar.style.width = "0%";
 draw();
-runHandle = runMultiCount({
-n: runSize, workers: K, spawnWorker: spawnMultiWorker,
+var runOpts = {
+n: runSize, workers: K,
+spawnWorker: spawnForEngine(runEngine),
+dynamic: isDynEngine(runEngine),
 onProgress: function (p) {
 if (!running) return;
 lastProgress = p;
@@ -1923,12 +2192,17 @@ progressBar.style.width = pct + "%";
 resWork.textContent = "辺 " + p.idx + " / " + p.E + "（" + pct.toFixed(1) + "%）を処理／経過時間 " +
 fmtMs(p.elapsed!= null? p.elapsed: (Date.now() - runStart)) + "／状態数 現在 " +
 fmtNum(String(p.states)) + "・最大 " + fmtNum(String(p.maxStates)) + "・累計 " + fmtNum(String(p.totalStates));
+var mk = memKindFor();
+resMem.textContent = "現在 " + memRangeText(p.states, mk) + "／ピーク目安 " +
+memRangeText(p.maxStates, mk) + "（最大レイヤ幅 " + fmtNum(String(p.maxStates)) + " から推定・全Worker合計）";
 draw();
 }
-});
+};
+runHandle = runMultiCount(runOpts);
 runHandle.promise.then(function (r) {
 if (r.stopped) return; // 停止処理は stopRun 側で表示済み
-results.multi[runSize + "@" + runWorkers] = { count: r.total, ms: r.elapsed, work: multiWorkText(r)};
+results.multi[multiKey(runSize, runWorkers, runEngine)] = { count: r.total, ms: r.elapsed, work: multiWorkText(r, runEngine),
+mem: "ピーク目安 " + memRangeText(r.maxStates, memKindFor()) + "（最大レイヤ幅 " + fmtNum(String(r.maxStates)) + " から推定・全Worker合計）"};
 var doneSize = runSize;
 finishRun();
 statusText.textContent = "完了";
@@ -1973,6 +2247,9 @@ resDigits.textContent = "";
 resWork.textContent = "辺 " + lp.idx + " / " + lp.E + "（" + (lp.E? (100 * lp.idx / lp.E).toFixed(1): "0.0") + "%）まで処理（経過時間 " +
 fmtMs(lp.elapsed!= null? lp.elapsed: (Date.now() - runStart)) + "／状態数 現在 " +
 fmtNum(String(lp.states)) + "・最大 " + fmtNum(String(lp.maxStates)) + "・累計 " + fmtNum(String(lp.totalStates)) + "）";
+var sk = memKindFor();
+resMem.textContent = "停止時点のピーク目安 " + memRangeText(lp.maxStates, sk) +
+"（最大レイヤ幅 " + fmtNum(String(lp.maxStates)) + " から推定）";
 resNote.textContent = "停止したため、経路数は確定していません。";
 viewPath = null;
 } else {
@@ -2032,7 +2309,7 @@ var line = $("selftestLineMulti");
 var chain = Promise.resolve(), allOk = true;
 [3, 4].forEach(function (nn) {
 chain = chain.then(function () {
-var h = runMultiCount({ n: nn, workers: 2, soloThreshold: 1, spawnWorker: spawnMultiWorker});
+var h = runMultiCount({ n: nn, workers: 2, soloThreshold: 1, spawnWorker: spawnMultiWorkerDense});
 return h.promise.then(function (r) {
 var ok =!r.stopped && r.total === KNOWN[nn];
 if (!ok) allOk = false;
@@ -2048,6 +2325,7 @@ line.textContent = allOk
 line.textContent = "起動時自己検証（マルチ）：Worker を起動できなかったため未実施です。";
 });
 })();
+
 
 /* ---------- 初期化 ---------- */
 if (window.ResizeObserver) {
